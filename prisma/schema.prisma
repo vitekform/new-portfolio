@@ -1,0 +1,46 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DB_DATABASE_URL")
+}
+
+model User {
+  id                 Int              @id @default(autoincrement())
+  username           String           @unique
+  email              String           @unique
+  password           String
+  token              String?
+  role               String           @default("unverified")
+  theme_preferences  Json?            @default("{}")
+  device_history     Json?            @default("[]")
+  verification_tokens Json?           @default("{}")
+  created_at         DateTime         @default(now())
+  updated_at         DateTime         @updatedAt
+  service_requests   ServiceRequest[]
+}
+
+model Service {
+  id                Int              @id @default(autoincrement())
+  name              String
+  description       String
+  created_at        DateTime         @default(now())
+  service_requests  ServiceRequest[]
+}
+
+model ServiceRequest {
+  id          Int       @id @default(autoincrement())
+  user        User      @relation(fields: [user_id], references: [id])
+  user_id     Int
+  service     Service   @relation(fields: [service_id], references: [id])
+  service_id  Int
+  details     String
+  status      String    @default("pending")
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+}
