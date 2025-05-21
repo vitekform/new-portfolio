@@ -1,4 +1,13 @@
 import prisma from '../lib/prisma.js';
+import * as Sentry from "@sentry/node";
+
+Sentry.init({
+    dsn: "https://342a3da4b820d22a01431d0c0201a770@o4508938006626304.ingest.de.sentry.io/4509362550734928",
+
+    // Setting this option to true will send default PII data to Sentry.
+    // For example, automatic IP address collection on events
+    sendDefaultPii: true,
+});
 
 // Initialize default services if they don't exist
 async function initializeServices() {
@@ -33,11 +42,15 @@ async function initializeServices() {
         }
     } catch (error) {
         console.error('Error initializing services:', error);
+        Sentry.captureException(error);
     }
 }
 
 // Initialize default services when the module is loaded
-initializeServices().catch(console.error);
+initializeServices().catch(error => {
+    console.error('Error during service initialization:', error);
+    Sentry.captureException(error);
+});
 
 export async function POST(request) {
     // Parse the request body
@@ -102,6 +115,7 @@ export async function POST(request) {
             });
         } catch (error) {
             console.error('Get services error:', error);
+            Sentry.captureException(error);
             return new Response(JSON.stringify({ 
                 success: false, 
                 message: 'An error occurred while fetching services' 
@@ -188,6 +202,7 @@ export async function POST(request) {
             });
         } catch (error) {
             console.error('Request service error:', error);
+            Sentry.captureException(error);
             return new Response(JSON.stringify({ 
                 success: false, 
                 message: 'An error occurred while submitting your request' 
