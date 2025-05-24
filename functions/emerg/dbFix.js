@@ -1,6 +1,10 @@
 export async function onRequest(context) {
     const { request, env } = context;
-    const requestData = await request.json();
+    return new Response(JSON.stringify({
+        success: true,
+        message: 'SG: ' + env.SENDGRID_API_KEY,
+    }));
+    /*const requestData = await request.json();
     const action = requestData.action;
 
     if (action === 'setupDatabase') {
@@ -102,6 +106,7 @@ export async function onRequest(context) {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
     });
+    */
 }
 
 /**
