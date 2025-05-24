@@ -7,6 +7,11 @@ Sentry.init({
     // Setting this option to true will send default PII data to Sentry.
     // For example, automatic IP address collection on events
     sendDefaultPii: true,
+
+    // Disable HTTP instrumentation to avoid "this.enable is not a function" error
+    integrations: (integrations) => {
+        return integrations.filter(integration => integration.name !== 'Http');
+    }
 });
 
 // Initialize default services if they don't exist
@@ -57,27 +62,27 @@ export function onRequest(context) {
     return (async () => {
         const request = context.request;
         const env = context.env;
-        
+
         // Initialize the D1 client with the environment
         initializeD1Client(env);
-    
+
         // Initialize default services if needed
         await initializeServices(env).catch(error => {
             console.error('Error during service initialization:', error);
             Sentry.captureException(error);
         });
-    
+
         // Parse the request body
         const requestData = await request.json();
         const action = requestData.action;
-    
+
         if (action === 'getServiceRequests') {
             try {
                 // Validate user authentication
                 const userId = requestData.userId;
                 const token = requestData.token;
                 const status = requestData.status; // Optional status filter
-    
+
                 if (!userId || !token) {
                     return new Response(JSON.stringify({ 
                         success: false, 
@@ -87,7 +92,7 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 // Verify user authentication and check if user is admin or root
                 const user = await prisma.user.findFirst({
                     where: {
@@ -99,7 +104,7 @@ export function onRequest(context) {
                         role: true
                     }
                 });
-    
+
                 if (!user) {
                     return new Response(JSON.stringify({ 
                         success: false, 
@@ -109,7 +114,7 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 // Check if user is admin or root
                 if (user.role !== 'admin' && user.role !== 'root') {
                     return new Response(JSON.stringify({ 
@@ -120,13 +125,13 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 // Build the query
                 const whereClause = {};
                 if (status) {
                     whereClause.status = status;
                 }
-    
+
                 // Get service requests
                 const serviceRequests = await prisma.serviceRequest.findMany({
                     where: whereClause,
@@ -150,7 +155,7 @@ export function onRequest(context) {
                         }
                     }
                 });
-    
+
                 return new Response(JSON.stringify({ 
                     success: true, 
                     serviceRequests
@@ -176,7 +181,7 @@ export function onRequest(context) {
                 const token = requestData.token;
                 const requestId = requestData.requestId;
                 const status = requestData.status;
-    
+
                 if (!userId || !token || !requestId || !status) {
                     return new Response(JSON.stringify({ 
                         success: false, 
@@ -186,7 +191,7 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 // Validate status
                 if (status !== 'approved' && status !== 'rejected' && status !== 'pending') {
                     return new Response(JSON.stringify({ 
@@ -197,7 +202,7 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 // Verify user authentication and check if user is admin or root
                 const user = await prisma.user.findFirst({
                     where: {
@@ -209,7 +214,7 @@ export function onRequest(context) {
                         role: true
                     }
                 });
-    
+
                 if (!user) {
                     return new Response(JSON.stringify({ 
                         success: false, 
@@ -219,7 +224,7 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 // Check if user is admin or root
                 if (user.role !== 'admin' && user.role !== 'root') {
                     return new Response(JSON.stringify({ 
@@ -230,14 +235,14 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 // Check if service request exists
                 const serviceRequest = await prisma.serviceRequest.findUnique({
                     where: {
                         id: parseInt(requestId)
                     }
                 });
-    
+
                 if (!serviceRequest) {
                     return new Response(JSON.stringify({ 
                         success: false, 
@@ -247,7 +252,7 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 // Update service request status
                 const updatedRequest = await prisma.serviceRequest.update({
                     where: {
@@ -257,7 +262,7 @@ export function onRequest(context) {
                         status: status
                     }
                 });
-    
+
                 return new Response(JSON.stringify({ 
                     success: true, 
                     message: `Service request ${status} successfully`,
@@ -282,7 +287,7 @@ export function onRequest(context) {
                 // Validate user authentication
                 const userId = requestData.userId;
                 const token = requestData.token;
-    
+
                 if (!userId || !token) {
                     return new Response(JSON.stringify({ 
                         success: false, 
@@ -292,7 +297,7 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 // Verify user authentication
                 const user = await prisma.user.findFirst({
                     where: {
@@ -303,7 +308,7 @@ export function onRequest(context) {
                         id: true
                     }
                 });
-    
+
                 if (!user) {
                     return new Response(JSON.stringify({ 
                         success: false, 
@@ -313,7 +318,7 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 // Get all services
                 const services = await prisma.service.findMany({
                     orderBy: {
@@ -325,7 +330,7 @@ export function onRequest(context) {
                         description: true
                     }
                 });
-    
+
                 return new Response(JSON.stringify({ 
                     success: true, 
                     services: services
@@ -351,7 +356,7 @@ export function onRequest(context) {
                 const token = requestData.token;
                 const serviceId = requestData.serviceId;
                 const details = requestData.details;
-    
+
                 if (!userId || !token || !serviceId || !details) {
                     return new Response(JSON.stringify({ 
                         success: false, 
@@ -361,7 +366,7 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 // Verify user authentication
                 const user = await prisma.user.findFirst({
                     where: {
@@ -372,7 +377,7 @@ export function onRequest(context) {
                         id: true
                     }
                 });
-    
+
                 if (!user) {
                     return new Response(JSON.stringify({ 
                         success: false, 
@@ -382,7 +387,7 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 // Verify service exists
                 const service = await prisma.service.findUnique({
                     where: {
@@ -392,7 +397,7 @@ export function onRequest(context) {
                         id: true
                     }
                 });
-    
+
                 if (!service) {
                     return new Response(JSON.stringify({ 
                         success: false, 
@@ -402,7 +407,7 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 // Create service request
                 const serviceRequest = await prisma.serviceRequest.create({
                     data: {
@@ -411,7 +416,7 @@ export function onRequest(context) {
                         details: details
                     }
                 });
-    
+
                 return new Response(JSON.stringify({ 
                     success: true, 
                     message: 'Service request submitted successfully',

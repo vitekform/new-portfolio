@@ -4,13 +4,18 @@ import * as Sentry from "@sentry/node";
 Sentry.init({
     dsn: "https://342a3da4b820d22a01431d0c0201a770@o4508938006626304.ingest.de.sentry.io/4509362550734928",
     sendDefaultPii: true,
+
+    // Disable HTTP instrumentation to avoid "this.enable is not a function" error
+    integrations: (integrations) => {
+        return integrations.filter(integration => integration.name !== 'Http');
+    }
 });
 
 export function onRequest(context) {
     return (async () => {
         const request = context.request;
         const env = context.env;
-        
+
         // Initialize the D1 client with the environment
         initializeD1Client(env);
 

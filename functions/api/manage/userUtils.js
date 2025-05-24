@@ -11,26 +11,31 @@ Sentry.init({
     // Setting this option to true will send default PII data to Sentry.
     // For example, automatic IP address collection on events
     sendDefaultPii: true,
+
+    // Disable HTTP instrumentation to avoid "this.enable is not a function" error
+    integrations: (integrations) => {
+        return integrations.filter(integration => integration.name !== 'Http');
+    }
 });
 
 export function onRequest(context) {
     return (async () => {
         const request = context.request;
         const env = context.env;
-        
+
         // Initialize the D1 client with the environment
         initializeD1Client(env);
-    
+
         // Parse the request body
         const requestData = await request.json();
         const action = requestData.action;
-    
+
         if (action === 'register') {
             try {
                 const username = requestData.username;
                 const email = requestData.email;
                 const password = requestData.password;
-    
+
                 // Validate input
                 if (!username || !email || !password) {
                     return new Response(JSON.stringify({ 
@@ -41,7 +46,7 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 // Check if username or email already exists
                     // Check for existing user with the same username or email
                     const existingUser = await prisma.user.findFirst({
@@ -52,12 +57,12 @@ export function onRequest(context) {
                             ]
                         }
                     });
-    
+
                     if (existingUser) {
                         // User already exists
                         const isDuplicateUsername = existingUser.username === username;
                         const isDuplicateEmail = existingUser.email === email;
-    
+
                         let message = '';
                         if (isDuplicateUsername && isDuplicateEmail) {
                             message = 'Both username and email are already taken';
@@ -66,7 +71,7 @@ export function onRequest(context) {
                         } else {
                             message = 'Email is already taken';
                         }
-    
+
                         return new Response(JSON.stringify({ 
                             success: false, 
                             message: message 
@@ -75,14 +80,14 @@ export function onRequest(context) {
                             headers: { 'Content-Type': 'application/json' }
                         });
                     }
-    
+
                     // Hash the password using bcrypt
                     const saltRounds = 10;
                     const password_hashed = await bcrypt.hash(password, saltRounds);
-    
+
                     // Generate a secure random token of 256 characters
                     const token = crypto.randomBytes(128).toString('hex'); // 128 bytes = 256 hex characters
-    
+
                     // Insert new user
                     const newUser = await prisma.user.create({
                         data: {
@@ -93,10 +98,10 @@ export function onRequest(context) {
                             role: "unverified"
                         }
                     });
-    
+
                     // Get the new user's ID
                     const newUserId = newUser.id;
-    
+
                     // Award the "Big Mistake" achievement
                     try {
                         await awardAchievement(newUserId, 'BIG_MISTAKE');
@@ -104,12 +109,12 @@ export function onRequest(context) {
                         Sentry.captureException(achievementError);
                         console.error('Error awarding achievement:', achievementError);
                     }
-    
+
                     // Generate a verification token
                     const verificationToken = crypto.randomBytes(32).toString('hex');
                     const verificationExpiry = new Date();
                     verificationExpiry.setHours(verificationExpiry.getHours() + 24); // Token valid for 24 hours
-    
+
                     // Store verification token in user's record
                     await prisma.user.update({
                         where: { id: newUserId },
@@ -120,14 +125,14 @@ export function onRequest(context) {
                             }
                         }
                     });
-    
+
                     // Send verification email
                     try {
                         if (process.env.SENDGRID_API_KEY) {
                             sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    
+
                             const verificationUrl = `${process.env.SITE_URL || 'https://vitek.dev'}/verify?token=${verificationToken}&userId=${newUserId}`;
-    
+
                             const msg = {
                                 to: email,
                                 from: process.env.SENDGRID_FROM_EMAIL || 'noreply@vitek.dev',
@@ -148,7 +153,7 @@ export function onRequest(context) {
                                     </div>
                                 `
                             };
-    
+
                             await sgMail.send(msg);
                             console.log('Verification email sent successfully');
                         } else {
@@ -159,7 +164,7 @@ export function onRequest(context) {
                         console.error('Error sending verification email:', emailError);
                         // Continue with registration even if email fails
                     }
-    
+
                     // Return success response with user ID and token
                     return new Response(JSON.stringify({ 
                         success: true, 
@@ -182,14 +187,14 @@ export function onRequest(context) {
                 });
             }
         }
-    
+
         // Handle login action
         else if (action === 'login') {
             try {
                 const username = requestData.username;
                 const password = requestData.password;
                 const userAgent = requestData.userAgent || 'Unknown';
-    
+
                 // Validate input
                 if (!username || !password) {
                     return new Response(JSON.stringify({ 
@@ -200,7 +205,7 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 try {
                     // Find user by username
                     const user = await prisma.user.findFirst({
@@ -211,7 +216,7 @@ export function onRequest(context) {
                             ]
                         }
                     });
-    
+
                     // If no user found
                     if (!user) {
                         return new Response(JSON.stringify({ 
@@ -222,7 +227,7 @@ export function onRequest(context) {
                             headers: { 'Content-Type': 'application/json' }
                         });
                     }
-    
+
                     // Check password
                     const passwordMatch = await bcrypt.compare(password, user.password);
                     if (!passwordMatch) {
@@ -234,31 +239,31 @@ export function onRequest(context) {
                             headers: { 'Content-Type': 'application/json' }
                         });
                     }
-    
+
                     // Generate a new token
                     const token = crypto.randomBytes(128).toString('hex');
-    
+
                     // Update user's token
                     await prisma.user.update({
                         where: { id: user.id },
                         data: { token: token }
                     });
-    
+
                     // Track device information
                     try {
                         // Generate a unique device ID based on user agent
                         const deviceId = crypto.createHash('md5').update(userAgent).digest('hex');
-                        
+
                         // Get current device history
                         let deviceHistory = user.device_history || [];
-                        
+
                         // Check if this device is already in history
                         const existingDevice = Array.isArray(deviceHistory) 
                             ? deviceHistory.find(device => device.id === deviceId)
                             : null;
-                        
+
                         let deviceInfo;
-                        
+
                         // If this is a new device, add it to history
                         if (!existingDevice) {
                             deviceInfo = {
@@ -267,7 +272,7 @@ export function onRequest(context) {
                                 first_seen: new Date().toISOString(),
                                 last_used: new Date().toISOString()
                             };
-                            
+
                             // Return with device verification required flag
                             return new Response(JSON.stringify({ 
                                 success: true, 
@@ -280,14 +285,14 @@ export function onRequest(context) {
                                 headers: { 'Content-Type': 'application/json' }
                             });
                         }
-    
+
                         // Known device, update last used timestamp
                         deviceInfo = {
                             id: deviceId,
                             user_agent: userAgent,
                             last_used: new Date().toISOString()
                         };
-    
+
                         // Update device history
                         if (Array.isArray(deviceHistory)) {
                             // Remove this device if it exists
@@ -296,7 +301,7 @@ export function onRequest(context) {
                             updatedHistory.push(deviceInfo);
                             // Keep only the last 5 devices
                             const limitedHistory = updatedHistory.slice(-5);
-    
+
                             // Update device history using D1
                             await prisma.user.update({
                                 where: { id: user.id },
@@ -314,7 +319,7 @@ export function onRequest(context) {
                         console.error('Device tracking error:', deviceError);
                         // Continue with login even if device tracking fails
                     }
-    
+
                     // Return user ID and token
                     return new Response(JSON.stringify({ 
                         success: true, 
@@ -342,13 +347,13 @@ export function onRequest(context) {
                 });
             }
         }
-    
+
         // Handle getUserData action
         else if (action === 'getUserData') {
             try {
                 const userId = requestData.userId;
                 const token = requestData.token;
-    
+
                 // Validate input
                 if (!userId || !token) {
                     return new Response(JSON.stringify({ 
@@ -359,7 +364,7 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 try {
                     // Check if user exists and token is valid
                     const userData = await prisma.user.findFirst({
@@ -374,7 +379,7 @@ export function onRequest(context) {
                             role: true
                         }
                     });
-    
+
                     // If no user found or token doesn't match
                     if (!userData) {
                         return new Response(JSON.stringify({ 
@@ -385,7 +390,7 @@ export function onRequest(context) {
                             headers: { 'Content-Type': 'application/json' }
                         });
                     }
-    
+
                     // Return user data (excluding sensitive information)
                     return new Response(JSON.stringify({ 
                         success: true, 
@@ -416,13 +421,13 @@ export function onRequest(context) {
                 });
             }
         }
-    
+
         // Handle verifyEmail action
         else if (action === 'verifyEmail') {
             try {
                 const token = requestData.token;
                 const userId = requestData.userId;
-    
+
                 // Validate input
                 if (!token || !userId) {
                     return new Response(JSON.stringify({ 
@@ -433,13 +438,13 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 try {
                     // Find user by ID
                     const user = await prisma.user.findUnique({
                         where: { id: parseInt(userId) }
                     });
-    
+
                     // If no user found
                     if (!user) {
                         return new Response(JSON.stringify({ 
@@ -450,7 +455,7 @@ export function onRequest(context) {
                             headers: { 'Content-Type': 'application/json' }
                         });
                     }
-    
+
                     // Check if user is already verified
                     if (user.role !== 'unverified') {
                         return new Response(JSON.stringify({ 
@@ -461,10 +466,10 @@ export function onRequest(context) {
                             headers: { 'Content-Type': 'application/json' }
                         });
                     }
-    
+
                     // Check if verification token exists and is valid
                     const verificationTokens = user.verification_tokens || {};
-                    
+
                     if (!verificationTokens.email || verificationTokens.email !== token) {
                         return new Response(JSON.stringify({ 
                             success: false, 
@@ -474,7 +479,7 @@ export function onRequest(context) {
                             headers: { 'Content-Type': 'application/json' }
                         });
                     }
-    
+
                     // Check if token is expired
                     if (verificationTokens.expiry) {
                         const expiryDate = new Date(verificationTokens.expiry);
@@ -488,7 +493,7 @@ export function onRequest(context) {
                             });
                         }
                     }
-    
+
                     // Update user role to 'user' (verified)
                     await prisma.user.update({
                         where: { id: parseInt(userId) },
@@ -497,7 +502,7 @@ export function onRequest(context) {
                             verification_tokens: {} // Clear verification tokens
                         }
                     });
-    
+
                     // Award the "Verified" achievement
                     try {
                         await awardAchievement(parseInt(userId), 'VERIFIED');
@@ -505,7 +510,7 @@ export function onRequest(context) {
                         Sentry.captureException(achievementError);
                         console.error('Error awarding achievement:', achievementError);
                     }
-    
+
                     // Return success response
                     return new Response(JSON.stringify({ 
                         success: true, 
@@ -531,12 +536,12 @@ export function onRequest(context) {
                 });
             }
         }
-    
+
         // Handle forgotPassword action
         else if (action === 'forgotPassword') {
             try {
                 const email = requestData.email;
-    
+
                 // Validate input
                 if (!email) {
                     return new Response(JSON.stringify({ 
@@ -547,13 +552,13 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 try {
                     // Find user by email
                     const user = await prisma.user.findUnique({
                         where: { email: email }
                     });
-    
+
                     // If no user found, still return success to prevent email enumeration
                     if (!user) {
                         return new Response(JSON.stringify({ 
@@ -564,29 +569,29 @@ export function onRequest(context) {
                             headers: { 'Content-Type': 'application/json' }
                         });
                     }
-    
+
                     // Generate a reset token
                     const resetToken = crypto.randomBytes(32).toString('hex');
                     const resetExpiry = new Date();
                     resetExpiry.setHours(resetExpiry.getHours() + 1); // Token valid for 1 hour
-    
+
                     // Store reset token in user's record
                     const verificationTokens = user.verification_tokens || {};
                     verificationTokens.reset = resetToken;
                     verificationTokens.resetExpiry = resetExpiry.toISOString();
-    
+
                     await prisma.user.update({
                         where: { id: user.id },
                         data: { verification_tokens: verificationTokens }
                     });
-    
+
                     // Send reset email
                     try {
                         if (process.env.SENDGRID_API_KEY) {
                             sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    
+
                             const resetUrl = `${process.env.SITE_URL || 'https://vitek.dev'}/reset-password?token=${resetToken}&userId=${user.id}`;
-    
+
                             const msg = {
                                 to: email,
                                 from: process.env.SENDGRID_FROM_EMAIL || 'noreply@vitek.dev',
@@ -607,7 +612,7 @@ export function onRequest(context) {
                                     </div>
                                 `
                             };
-    
+
                             await sgMail.send(msg);
                             console.log('Password reset email sent successfully');
                         } else {
@@ -618,7 +623,7 @@ export function onRequest(context) {
                         console.error('Error sending password reset email:', emailError);
                         // Continue even if email fails
                     }
-    
+
                     // Return success response
                     return new Response(JSON.stringify({ 
                         success: true, 
@@ -644,14 +649,14 @@ export function onRequest(context) {
                 });
             }
         }
-    
+
         // Handle resetPassword action
         else if (action === 'resetPassword') {
             try {
                 const token = requestData.token;
                 const userId = requestData.userId;
                 const newPassword = requestData.newPassword;
-    
+
                 // Validate input
                 if (!token || !userId || !newPassword) {
                     return new Response(JSON.stringify({ 
@@ -662,13 +667,13 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 try {
                     // Find user by ID
                     const user = await prisma.user.findUnique({
                         where: { id: parseInt(userId) }
                     });
-    
+
                     // If no user found
                     if (!user) {
                         return new Response(JSON.stringify({ 
@@ -679,10 +684,10 @@ export function onRequest(context) {
                             headers: { 'Content-Type': 'application/json' }
                         });
                     }
-    
+
                     // Check if reset token exists and is valid
                     const verificationTokens = user.verification_tokens || {};
-                    
+
                     if (!verificationTokens.reset || verificationTokens.reset !== token) {
                         return new Response(JSON.stringify({ 
                             success: false, 
@@ -692,7 +697,7 @@ export function onRequest(context) {
                             headers: { 'Content-Type': 'application/json' }
                         });
                     }
-    
+
                     // Check if token is expired
                     if (verificationTokens.resetExpiry) {
                         const expiryDate = new Date(verificationTokens.resetExpiry);
@@ -706,16 +711,16 @@ export function onRequest(context) {
                             });
                         }
                     }
-    
+
                     // Hash the new password
                     const saltRounds = 10;
                     const password_hashed = await bcrypt.hash(newPassword, saltRounds);
-    
+
                     // Update user's password and clear reset token
                     const updatedVerificationTokens = { ...verificationTokens };
                     delete updatedVerificationTokens.reset;
                     delete updatedVerificationTokens.resetExpiry;
-    
+
                     await prisma.user.update({
                         where: { id: parseInt(userId) },
                         data: { 
@@ -723,7 +728,7 @@ export function onRequest(context) {
                             verification_tokens: updatedVerificationTokens
                         }
                     });
-    
+
                     // Return success response
                     return new Response(JSON.stringify({ 
                         success: true, 
@@ -749,14 +754,14 @@ export function onRequest(context) {
                 });
             }
         }
-    
+
         // Handle verifyDevice action
         else if (action === 'verifyDevice') {
             try {
                 const userId = requestData.userId;
                 const token = requestData.token;
                 const userAgent = requestData.userAgent || 'Unknown';
-    
+
                 // Validate input
                 if (!userId || !token) {
                     return new Response(JSON.stringify({ 
@@ -767,7 +772,7 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 try {
                     // Find user by ID and token
                     const user = await prisma.user.findFirst({
@@ -776,7 +781,7 @@ export function onRequest(context) {
                             token: token
                         }
                     });
-    
+
                     // If no user found or token doesn't match
                     if (!user) {
                         return new Response(JSON.stringify({ 
@@ -787,13 +792,13 @@ export function onRequest(context) {
                             headers: { 'Content-Type': 'application/json' }
                         });
                     }
-    
+
                     // Generate a unique device ID based on user agent
                     const deviceId = crypto.createHash('md5').update(userAgent).digest('hex');
-                    
+
                     // Get current device history
                     let deviceHistory = user.device_history || [];
-                    
+
                     // Create device info
                     const deviceInfo = {
                         id: deviceId,
@@ -802,7 +807,7 @@ export function onRequest(context) {
                         last_used: new Date().toISOString(),
                         verified: true
                     };
-                    
+
                     // Update device history
                     if (Array.isArray(deviceHistory)) {
                         // Remove this device if it exists
@@ -811,7 +816,7 @@ export function onRequest(context) {
                         updatedHistory.push(deviceInfo);
                         // Keep only the last 5 devices
                         const limitedHistory = updatedHistory.slice(-5);
-    
+
                         // Update device history
                         await prisma.user.update({
                             where: { id: parseInt(userId) },
@@ -824,7 +829,7 @@ export function onRequest(context) {
                             data: { device_history: [deviceInfo] }
                         });
                     }
-    
+
                     // Return success response
                     return new Response(JSON.stringify({ 
                         success: true, 
@@ -850,13 +855,13 @@ export function onRequest(context) {
                 });
             }
         }
-    
+
         // Handle logout action
         else if (action === 'logout') {
             try {
                 const userId = requestData.userId;
                 const token = requestData.token;
-    
+
                 // Validate input
                 if (!userId || !token) {
                     return new Response(JSON.stringify({ 
@@ -867,7 +872,7 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 try {
                     // Find user by ID and token
                     const user = await prisma.user.findFirst({
@@ -876,7 +881,7 @@ export function onRequest(context) {
                             token: token
                         }
                     });
-    
+
                     // If no user found or token doesn't match, still return success
                     if (!user) {
                         return new Response(JSON.stringify({ 
@@ -887,13 +892,13 @@ export function onRequest(context) {
                             headers: { 'Content-Type': 'application/json' }
                         });
                     }
-    
+
                     // Invalidate the token
                     await prisma.user.update({
                         where: { id: parseInt(userId) },
                         data: { token: null }
                     });
-    
+
                     // Return success response
                     return new Response(JSON.stringify({ 
                         success: true, 
@@ -919,14 +924,14 @@ export function onRequest(context) {
                 });
             }
         }
-    
+
         // Handle updateThemePreferences action
         else if (action === 'updateThemePreferences') {
             try {
                 const userId = requestData.userId;
                 const token = requestData.token;
                 const themePreferences = requestData.themePreferences;
-    
+
                 // Validate input
                 if (!userId || !token || !themePreferences) {
                     return new Response(JSON.stringify({ 
@@ -937,7 +942,7 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 try {
                     // Find user by ID and token
                     const user = await prisma.user.findFirst({
@@ -946,7 +951,7 @@ export function onRequest(context) {
                             token: token
                         }
                     });
-    
+
                     // If no user found or token doesn't match
                     if (!user) {
                         return new Response(JSON.stringify({ 
@@ -957,13 +962,13 @@ export function onRequest(context) {
                             headers: { 'Content-Type': 'application/json' }
                         });
                     }
-    
+
                     // Update theme preferences
                     await prisma.user.update({
                         where: { id: parseInt(userId) },
                         data: { theme_preferences: themePreferences }
                     });
-    
+
                     // Return success response
                     return new Response(JSON.stringify({ 
                         success: true, 
@@ -989,13 +994,13 @@ export function onRequest(context) {
                 });
             }
         }
-    
+
         // Handle getThemePreferences action
         else if (action === 'getThemePreferences') {
             try {
                 const userId = requestData.userId;
                 const token = requestData.token;
-    
+
                 // Validate input
                 if (!userId || !token) {
                     return new Response(JSON.stringify({ 
@@ -1006,7 +1011,7 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-    
+
                 try {
                     // Find user by ID and token
                     const user = await prisma.user.findFirst({
@@ -1019,7 +1024,7 @@ export function onRequest(context) {
                             theme_preferences: true
                         }
                     });
-    
+
                     // If no user found or token doesn't match
                     if (!user) {
                         return new Response(JSON.stringify({ 
@@ -1030,7 +1035,7 @@ export function onRequest(context) {
                             headers: { 'Content-Type': 'application/json' }
                         });
                     }
-    
+
                     // Return theme preferences
                     return new Response(JSON.stringify({ 
                         success: true, 
@@ -1056,7 +1061,7 @@ export function onRequest(context) {
                 });
             }
         }
-    
+
         // If action is not recognized
         else {
             return new Response(JSON.stringify({ 

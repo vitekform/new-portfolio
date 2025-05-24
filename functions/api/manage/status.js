@@ -7,13 +7,18 @@ Sentry.init({
     // Setting this option to true will send default PII data to Sentry.
     // For example, automatic IP address collection on events
     sendDefaultPii: true,
+
+    // Disable HTTP instrumentation to avoid "this.enable is not a function" error
+    integrations: (integrations) => {
+        return integrations.filter(integration => integration.name !== 'Http');
+    }
 });
 
 export function onRequest(context) {
     return (async () => {
         const request = context.request;
         const env = context.env;
-        
+
         // Initialize the D1 client with the environment
         initializeD1Client(env);
 
