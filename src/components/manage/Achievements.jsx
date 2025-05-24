@@ -51,7 +51,9 @@ function Achievements() {
         // Initialize active secret settings
         const activeSettings = {};
         (data.secretSettings || []).forEach(setting => {
-          activeSettings[setting.secret_setting.code] = false;
+          if (setting.secret_setting?.code) {
+            activeSettings[setting.secret_setting.code] = false;
+          }
         });
         setActiveSecretSettings(activeSettings);
       } else {
@@ -88,115 +90,115 @@ function Achievements() {
 
   if (loading) {
     return (
-      <LoadingWrapper>
-        <FaSpinner className="spinner" />
-        <p>Loading achievements...</p>
-      </LoadingWrapper>
+        <LoadingWrapper>
+          <FaSpinner className="spinner" />
+          <p>Loading achievements...</p>
+        </LoadingWrapper>
     );
   }
 
   return (
-    <AchievementsContainer>
-      <SectionHeader>
-        <h2>Achievements & Easter Eggs</h2>
-      </SectionHeader>
+      <AchievementsContainer>
+        <SectionHeader>
+          <h2>Achievements & Easter Eggs</h2>
+        </SectionHeader>
 
-      {error && <ErrorMessage>{error}</ErrorMessage>}
+        {error && <ErrorMessage>{error}</ErrorMessage>}
 
-      <AchievementsSection>
-        <SectionTitle>
-          <FaTrophy />
-          <span>Your Achievements</span>
-        </SectionTitle>
+        <AchievementsSection>
+          <SectionTitle>
+            <FaTrophy />
+            <span>Your Achievements</span>
+          </SectionTitle>
 
-        {achievements.length === 0 ? (
-          <EmptyState>
-            You haven't earned any achievements yet. Keep using the app to unlock them!
-          </EmptyState>
-        ) : (
-          <AchievementsList>
-            {achievements.map((achievement) => (
-              <AchievementCard key={achievement.id}>
-                <AchievementIcon>
-                  <FaTrophy />
-                </AchievementIcon>
-                <AchievementDetails>
-                  <AchievementName>{achievement.achievement.name}</AchievementName>
-                  <AchievementDescription>
-                    {achievement.achievement.description}
-                  </AchievementDescription>
-                  <AchievementDate>
-                    Unlocked on {new Date(achievement.unlocked_at).toLocaleDateString()}
-                  </AchievementDate>
-                </AchievementDetails>
-              </AchievementCard>
-            ))}
-          </AchievementsList>
+          {achievements.length === 0 ? (
+              <EmptyState>
+                You haven't earned any achievements yet. Keep using the app to unlock them!
+              </EmptyState>
+          ) : (
+              <AchievementsList>
+                {achievements.map((achievement) => (
+                    <AchievementCard key={achievement.id}>
+                      <AchievementIcon>
+                        <FaTrophy />
+                      </AchievementIcon>
+                      <AchievementDetails>
+                        <AchievementName>{achievement.achievement?.name || 'Unnamed Achievement'}</AchievementName>
+                        <AchievementDescription>
+                          {achievement.achievement?.description || 'No description available'}
+                        </AchievementDescription>
+                        <AchievementDate>
+                          Unlocked on {new Date(achievement.unlocked_at).toLocaleDateString()}
+                        </AchievementDate>
+                      </AchievementDetails>
+                    </AchievementCard>
+                ))}
+              </AchievementsList>
+          )}
+        </AchievementsSection>
+
+        {easterEggs.length > 0 && (
+            <AchievementsSection>
+              <SectionTitle>
+                <FaMagic />
+                <span>Easter Eggs Discovered</span>
+              </SectionTitle>
+
+              <AchievementsList>
+                {easterEggs.map((easterEgg) => (
+                    <AchievementCard key={easterEgg.id}>
+                      <AchievementIcon>
+                        <FaMagic />
+                      </AchievementIcon>
+                      <AchievementDetails>
+                        <AchievementName>{easterEgg.easter_egg?.name || 'Unnamed Easter Egg'}</AchievementName>
+                        <AchievementDescription>
+                          {easterEgg.easter_egg?.description || 'No description available'}
+                        </AchievementDescription>
+                        <AchievementDate>
+                          Discovered on {new Date(easterEgg.unlocked_at).toLocaleDateString()}
+                        </AchievementDate>
+                      </AchievementDetails>
+                    </AchievementCard>
+                ))}
+              </AchievementsList>
+            </AchievementsSection>
         )}
-      </AchievementsSection>
 
-      {easterEggs.length > 0 && (
-        <AchievementsSection>
-          <SectionTitle>
-            <FaMagic />
-            <span>Easter Eggs Discovered</span>
-          </SectionTitle>
+        {secretSettings.length > 0 && (
+            <AchievementsSection>
+              <SectionTitle>
+                <FaUnlock />
+                <span>Secret Settings</span>
+              </SectionTitle>
 
-          <AchievementsList>
-            {easterEggs.map((easterEgg) => (
-              <AchievementCard key={easterEgg.id}>
-                <AchievementIcon>
-                  <FaMagic />
-                </AchievementIcon>
-                <AchievementDetails>
-                  <AchievementName>{easterEgg.easter_egg.name}</AchievementName>
-                  <AchievementDescription>
-                    {easterEgg.easter_egg.description}
-                  </AchievementDescription>
-                  <AchievementDate>
-                    Discovered on {new Date(easterEgg.unlocked_at).toLocaleDateString()}
-                  </AchievementDate>
-                </AchievementDetails>
-              </AchievementCard>
-            ))}
-          </AchievementsList>
-        </AchievementsSection>
-      )}
-
-      {secretSettings.length > 0 && (
-        <AchievementsSection>
-          <SectionTitle>
-            <FaUnlock />
-            <span>Secret Settings</span>
-          </SectionTitle>
-
-          <SecretSettingsList>
-            {secretSettings.map((setting) => (
-              <SecretSettingCard key={setting.id}>
-                <SecretSettingIcon active={activeSecretSettings[setting.secret_setting.code]}>
-                  {activeSecretSettings[setting.secret_setting.code] ? <FaUnlock /> : <FaLock />}
-                </SecretSettingIcon>
-                <SecretSettingDetails>
-                  <SecretSettingName>{setting.secret_setting.name}</SecretSettingName>
-                  <SecretSettingDescription>
-                    {setting.secret_setting.description}
-                  </SecretSettingDescription>
-                  <SecretSettingDate>
-                    Unlocked on {new Date(setting.unlocked_at).toLocaleDateString()}
-                  </SecretSettingDate>
-                </SecretSettingDetails>
-                <ToggleButton 
-                  active={activeSecretSettings[setting.secret_setting.code]}
-                  onClick={() => toggleSecretSetting(setting.secret_setting.code)}
-                >
-                  {activeSecretSettings[setting.secret_setting.code] ? 'Disable' : 'Enable'}
-                </ToggleButton>
-              </SecretSettingCard>
-            ))}
-          </SecretSettingsList>
-        </AchievementsSection>
-      )}
-    </AchievementsContainer>
+              <SecretSettingsList>
+                {secretSettings.map((setting) => (
+                    <SecretSettingCard key={setting.id}>
+                      <SecretSettingIcon active={activeSecretSettings[setting.secret_setting?.code]}>
+                        {activeSecretSettings[setting.secret_setting?.code] ? <FaUnlock /> : <FaLock />}
+                      </SecretSettingIcon>
+                      <SecretSettingDetails>
+                        <SecretSettingName>{setting.secret_setting?.name || 'Unnamed Setting'}</SecretSettingName>
+                        <SecretSettingDescription>
+                          {setting.secret_setting?.description || 'No description available'}
+                        </SecretSettingDescription>
+                        <SecretSettingDate>
+                          Unlocked on {new Date(setting.unlocked_at).toLocaleDateString()}
+                        </SecretSettingDate>
+                      </SecretSettingDetails>
+                      <ToggleButton
+                          active={activeSecretSettings[setting.secret_setting?.code]}
+                          onClick={() => setting.secret_setting?.code && toggleSecretSetting(setting.secret_setting.code)}
+                      >
+                        {activeSecretSettings[setting.secret_setting?.code] ? 'Disable' : 'Enable'}
+                      </ToggleButton>
+                    </SecretSettingCard>
+                ))}
+              </SecretSettingsList>
+            </AchievementsSection>
+        )}
+      </AchievementsContainer>
   );
 }
 
@@ -333,12 +335,12 @@ const SecretSettingDescription = styled.p`
 
 const AchievementDate = styled.div`
   font-size: 0.8rem;
-  color: var(--text-tertiary);
+  color: var(--text-tertiary, #757575);
 `;
 
 const SecretSettingDate = styled.div`
   font-size: 0.8rem;
-  color: var(--text-tertiary);
+  color: var(--text-tertiary, #757575);
 `;
 
 const ToggleButton = styled.button`
