@@ -4,6 +4,7 @@ import { getUserData } from './actions/getUserData.js';
 import { registerUser } from './actions/registerUser.js';
 import { verifyEmail } from './actions/verifyEmail.js';
 import { resendVerification } from './actions/resendVerification.js';
+import { sendVerificationEmail } from './actions/sendVerificationEmail.js';
 
 export async function onRequest(context) {
     const { request, env } = context;
@@ -27,6 +28,8 @@ export async function onRequest(context) {
                 return await verifyEmail(requestData);
             case 'resendVerification':
                 return await resendVerification(requestData);
+            case 'sendVerificationEmail':
+                return await sendVerificationEmail(requestData, env); // Pass env for SendGrid access
             default:
                 return new Response(JSON.stringify({
                     success: false,
