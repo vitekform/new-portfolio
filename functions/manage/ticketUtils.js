@@ -1,4 +1,4 @@
-import prisma from '../lib/prisma.js';
+import prisma, { initializeD1Client } from '../lib/prisma.js';
 import * as Sentry from "@sentry/node";
 
 Sentry.init({
@@ -6,7 +6,10 @@ Sentry.init({
     sendDefaultPii: true,
 });
 
-export async function POST(request) {
+export async function POST(request, env) {
+    // Initialize the D1 client with the environment
+    initializeD1Client(env);
+
     // Parse the request body
     const requestData = await request.json();
     const action = requestData.action;
@@ -596,7 +599,7 @@ export async function POST(request) {
             });
         }
     }
-    
+
     return new Response(JSON.stringify({ 
         success: false, 
         message: 'Invalid action' 

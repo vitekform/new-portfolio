@@ -1,4 +1,4 @@
-import prisma from '../lib/prisma.js';
+import prisma, { initializeD1Client } from '../lib/prisma.js';
 import * as Sentry from "@sentry/node";
 
 Sentry.init({
@@ -10,8 +10,13 @@ Sentry.init({
 });
 
 // Initialize default services if they don't exist
-async function initializeServices() {
+async function initializeServices(env) {
     try {
+        // Initialize the D1 client with the environment
+        if (env) {
+            initializeD1Client(env);
+        }
+
         // Check if any services exist
         const servicesCount = await prisma.service.count();
 
@@ -46,13 +51,18 @@ async function initializeServices() {
     }
 }
 
-// Initialize default services when the module is loaded
-initializeServices().catch(error => {
-    console.error('Error during service initialization:', error);
-    Sentry.captureException(error);
-});
+// We'll initialize services in the POST function where the environment is available
 
-export async function POST(request) {
+export async function POST(request, env) {
+    // Initialize the D1 client with the environment
+    initializeD1Client(env);
+
+    // Initialize default services if needed
+    await initializeServices(env).catch(error => {
+        console.error('Error during service initialization:', error);
+        Sentry.captureException(error);
+    });
+
     // Parse the request body
     const requestData = await request.json();
     const action = requestData.action;

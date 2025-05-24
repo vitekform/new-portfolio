@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import sgMail from '@sendgrid/mail';
-import prisma from '../lib/prisma.js';
+import prisma, { initializeD1Client } from '../lib/prisma.js';
 import * as Sentry from '@sentry/node';
 import { awardAchievement } from './achievementUtils.js';
 
@@ -13,7 +13,10 @@ Sentry.init({
     sendDefaultPii: true,
 });
 
-export async function POST(request) {
+export async function POST(request, env) {
+    // Initialize the D1 client with the environment
+    initializeD1Client(env);
+
     // Parse the request body
     const requestData = await request.json();
     const action = requestData.action;
