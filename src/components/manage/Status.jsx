@@ -39,6 +39,7 @@ function Status() {
       
       if (data.success) {
         setDbLatency(data.dbLatency);
+        setApiLatency(apiLatency - data.dbLatency);
       } else {
         setError(data.message || 'Failed to check database latency');
         setDbLatency(null);
