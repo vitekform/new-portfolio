@@ -5,7 +5,7 @@ export function onRequest(context) {
         const request = context.request;
         const env = context.env;
 
-        // Always initialize and get D1 client with env
+        // Initialize the D1 client with the environment
         initializeD1Client(env);
         const d1 = getD1Client(env);
 
@@ -22,9 +22,9 @@ export function onRequest(context) {
                 const title = requestData.title || 'New Ticket';
 
                 if (!userId || !token || !serviceRequestId) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Missing required parameters' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Missing required parameters'
                     }), {
                         status: 400,
                         headers: { 'Content-Type': 'application/json' }
@@ -44,9 +44,9 @@ export function onRequest(context) {
                 });
 
                 if (!user) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Invalid authentication' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid authentication'
                     }), {
                         status: 401,
                         headers: { 'Content-Type': 'application/json' }
@@ -65,9 +65,9 @@ export function onRequest(context) {
                 });
 
                 if (!serviceRequest) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Service request not found' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Service request not found'
                     }), {
                         status: 404,
                         headers: { 'Content-Type': 'application/json' }
@@ -76,9 +76,9 @@ export function onRequest(context) {
 
                 // Check if user is the owner of the service request or is admin/root
                 if (serviceRequest.user_id !== user.id && user.role !== 'admin' && user.role !== 'root') {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Unauthorized. You can only create tickets for your own service requests.' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Unauthorized. You can only create tickets for your own service requests.'
                     }), {
                         status: 403,
                         headers: { 'Content-Type': 'application/json' }
@@ -87,9 +87,9 @@ export function onRequest(context) {
 
                 // Check if ticket already exists for this service request
                 if (serviceRequest.ticket) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'A ticket already exists for this service request' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'A ticket already exists for this service request'
                     }), {
                         status: 400,
                         headers: { 'Content-Type': 'application/json' }
@@ -105,8 +105,8 @@ export function onRequest(context) {
                     }
                 });
 
-                return new Response(JSON.stringify({ 
-                    success: true, 
+                return new Response(JSON.stringify({
+                    success: true,
                     message: 'Ticket created successfully',
                     ticket
                 }), {
@@ -116,14 +116,14 @@ export function onRequest(context) {
             } catch (error) {
                 console.error('Create ticket error:', error);
                 return new Response(JSON.stringify({
-                    success: false, 
-                    message: 'An error occurred while creating the ticket' 
+                    success: false,
+                    message: 'An error occurred while creating the ticket'
                 }), {
                     status: 500,
                     headers: { 'Content-Type': 'application/json' }
                 });
             }
-        } 
+        }
         else if (action === 'getTickets') {
             try {
                 // Validate user authentication
@@ -132,9 +132,9 @@ export function onRequest(context) {
                 const status = requestData.status; // Optional status filter
 
                 if (!userId || !token) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Authentication required' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Authentication required'
                     }), {
                         status: 401,
                         headers: { 'Content-Type': 'application/json' }
@@ -154,9 +154,9 @@ export function onRequest(context) {
                 });
 
                 if (!user) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Invalid authentication' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid authentication'
                     }), {
                         status: 401,
                         headers: { 'Content-Type': 'application/json' }
@@ -210,8 +210,8 @@ export function onRequest(context) {
                     }
                 });
 
-                return new Response(JSON.stringify({ 
-                    success: true, 
+                return new Response(JSON.stringify({
+                    success: true,
                     tickets
                 }), {
                     status: 200,
@@ -220,8 +220,8 @@ export function onRequest(context) {
             } catch (error) {
                 console.error('Get tickets error:', error);
                 return new Response(JSON.stringify({
-                    success: false, 
-                    message: 'An error occurred while fetching tickets' 
+                    success: false,
+                    message: 'An error occurred while fetching tickets'
                 }), {
                     status: 500,
                     headers: { 'Content-Type': 'application/json' }
@@ -236,9 +236,9 @@ export function onRequest(context) {
                 const ticketId = requestData.ticketId;
 
                 if (!userId || !token || !ticketId) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Missing required parameters' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Missing required parameters'
                     }), {
                         status: 400,
                         headers: { 'Content-Type': 'application/json' }
@@ -258,9 +258,9 @@ export function onRequest(context) {
                 });
 
                 if (!user) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Invalid authentication' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid authentication'
                     }), {
                         status: 401,
                         headers: { 'Content-Type': 'application/json' }
@@ -303,9 +303,9 @@ export function onRequest(context) {
                 });
 
                 if (!ticket) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Ticket not found' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Ticket not found'
                     }), {
                         status: 404,
                         headers: { 'Content-Type': 'application/json' }
@@ -314,9 +314,9 @@ export function onRequest(context) {
 
                 // Check if user is the owner of the ticket or is admin/root
                 if (ticket.user_id !== user.id && user.role !== 'admin' && user.role !== 'root') {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Unauthorized. You can only view your own tickets.' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Unauthorized. You can only view your own tickets.'
                     }), {
                         status: 403,
                         headers: { 'Content-Type': 'application/json' }
@@ -341,8 +341,8 @@ export function onRequest(context) {
                     });
                 }
 
-                return new Response(JSON.stringify({ 
-                    success: true, 
+                return new Response(JSON.stringify({
+                    success: true,
                     ticket
                 }), {
                     status: 200,
@@ -351,8 +351,8 @@ export function onRequest(context) {
             } catch (error) {
                 console.error('Get ticket error:', error);
                 return new Response(JSON.stringify({
-                    success: false, 
-                    message: 'An error occurred while fetching the ticket' 
+                    success: false,
+                    message: 'An error occurred while fetching the ticket'
                 }), {
                     status: 500,
                     headers: { 'Content-Type': 'application/json' }
@@ -368,9 +368,9 @@ export function onRequest(context) {
                 const content = requestData.content;
 
                 if (!userId || !token || !ticketId || !content) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Missing required parameters' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Missing required parameters'
                     }), {
                         status: 400,
                         headers: { 'Content-Type': 'application/json' }
@@ -390,9 +390,9 @@ export function onRequest(context) {
                 });
 
                 if (!user) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Invalid authentication' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid authentication'
                     }), {
                         status: 401,
                         headers: { 'Content-Type': 'application/json' }
@@ -407,9 +407,9 @@ export function onRequest(context) {
                 });
 
                 if (!ticket) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Ticket not found' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Ticket not found'
                     }), {
                         status: 404,
                         headers: { 'Content-Type': 'application/json' }
@@ -418,9 +418,9 @@ export function onRequest(context) {
 
                 // Check if user is the owner of the ticket or is admin/root
                 if (ticket.user_id !== user.id && user.role !== 'admin' && user.role !== 'root') {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Unauthorized. You can only send messages to your own tickets.' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Unauthorized. You can only send messages to your own tickets.'
                     }), {
                         status: 403,
                         headers: { 'Content-Type': 'application/json' }
@@ -429,9 +429,9 @@ export function onRequest(context) {
 
                 // Check if ticket is closed
                 if (ticket.status === 'closed') {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Cannot send messages to a closed ticket' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Cannot send messages to a closed ticket'
                     }), {
                         status: 400,
                         headers: { 'Content-Type': 'application/json' }
@@ -466,8 +466,8 @@ export function onRequest(context) {
                     }
                 });
 
-                return new Response(JSON.stringify({ 
-                    success: true, 
+                return new Response(JSON.stringify({
+                    success: true,
                     message: 'Message sent successfully',
                     ticketMessage: message
                 }), {
@@ -477,8 +477,8 @@ export function onRequest(context) {
             } catch (error) {
                 console.error('Send message error:', error);
                 return new Response(JSON.stringify({
-                    success: false, 
-                    message: 'An error occurred while sending the message' 
+                    success: false,
+                    message: 'An error occurred while sending the message'
                 }), {
                     status: 500,
                     headers: { 'Content-Type': 'application/json' }
@@ -494,9 +494,9 @@ export function onRequest(context) {
                 const status = requestData.status;
 
                 if (!userId || !token || !ticketId || !status) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Missing required parameters' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Missing required parameters'
                     }), {
                         status: 400,
                         headers: { 'Content-Type': 'application/json' }
@@ -505,9 +505,9 @@ export function onRequest(context) {
 
                 // Validate status
                 if (status !== 'open' && status !== 'closed') {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Invalid status. Must be open or closed.' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid status. Must be open or closed.'
                     }), {
                         status: 400,
                         headers: { 'Content-Type': 'application/json' }
@@ -527,9 +527,9 @@ export function onRequest(context) {
                 });
 
                 if (!user) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Invalid authentication' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid authentication'
                     }), {
                         status: 401,
                         headers: { 'Content-Type': 'application/json' }
@@ -544,9 +544,9 @@ export function onRequest(context) {
                 });
 
                 if (!ticket) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Ticket not found' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Ticket not found'
                     }), {
                         status: 404,
                         headers: { 'Content-Type': 'application/json' }
@@ -555,9 +555,9 @@ export function onRequest(context) {
 
                 // Check if user is the owner of the ticket or is admin/root
                 if (ticket.user_id !== user.id && user.role !== 'admin' && user.role !== 'root') {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Unauthorized. You can only update your own tickets.' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Unauthorized. You can only update your own tickets.'
                     }), {
                         status: 403,
                         headers: { 'Content-Type': 'application/json' }
@@ -574,8 +574,8 @@ export function onRequest(context) {
                     }
                 });
 
-                return new Response(JSON.stringify({ 
-                    success: true, 
+                return new Response(JSON.stringify({
+                    success: true,
                     message: `Ticket ${status === 'open' ? 'reopened' : 'closed'} successfully`,
                     ticket: updatedTicket
                 }), {
@@ -585,8 +585,8 @@ export function onRequest(context) {
             } catch (error) {
                 console.error('Update ticket status error:', error);
                 return new Response(JSON.stringify({
-                    success: false, 
-                    message: 'An error occurred while updating the ticket status' 
+                    success: false,
+                    message: 'An error occurred while updating the ticket status'
                 }), {
                     status: 500,
                     headers: { 'Content-Type': 'application/json' }
@@ -594,9 +594,9 @@ export function onRequest(context) {
             }
         }
 
-        return new Response(JSON.stringify({ 
-            success: false, 
-            message: 'Invalid action' 
+        return new Response(JSON.stringify({
+            success: false,
+            message: 'Invalid action'
         }), {
             status: 400,
             headers: { 'Content-Type': 'application/json' }

@@ -4,11 +4,10 @@ import getD1Client, { initializeD1Client } from '../lib/d1.js';
  * Award an achievement to a user
  * @param {number} userId - The ID of the user
  * @param {string} achievementCode - The code of the achievement to award
- * @param {Object} [env] - The environment object
  * @returns {Promise<Object>} - The created user achievement
  */
-export async function awardAchievement(userId, achievementCode, env) {
-  const d1 = getD1Client(env);
+export async function awardAchievement(userId, achievementCode) {
+  const d1 = getD1Client();
   try {
     // Check if the user already has this achievement
     const achievement = await d1.achievement.findUnique({ where: { code: achievementCode } });
@@ -60,11 +59,10 @@ export async function awardAchievement(userId, achievementCode, env) {
  * Unlock an easter egg for a user
  * @param {number} userId - The ID of the user
  * @param {string} easterEggCode - The code of the easter egg to unlock
- * @param {Object} [env] - The environment object
  * @returns {Promise<Object>} - The created user easter egg
  */
-export async function unlockEasterEgg(userId, easterEggCode, env) {
-  const d1 = getD1Client(env);
+export async function unlockEasterEgg(userId, easterEggCode) {
+  const d1 = getD1Client();
   try {
     const easterEgg = await d1.easterEgg.findUnique({ where: { code: easterEggCode } });
     if (!easterEgg) throw new Error(`Easter egg with code ${easterEggCode} not found`);
@@ -114,11 +112,10 @@ export async function unlockEasterEgg(userId, easterEggCode, env) {
 /**
  * Get all achievements for a user
  * @param {number} userId - The ID of the user
- * @param {Object} [env] - The environment object
  * @returns {Promise<Array>} - The user's achievements
  */
-export async function getUserAchievements(userId, env) {
-  const d1 = getD1Client(env);
+export async function getUserAchievements(userId) {
+  const d1 = getD1Client();
   try {
     const userAchievements = await d1.userAchievement.findMany({
       where: { user_id: userId }
@@ -133,11 +130,10 @@ export async function getUserAchievements(userId, env) {
 /**
  * Get all easter eggs for a user
  * @param {number} userId - The ID of the user
- * @param {Object} [env] - The environment object
  * @returns {Promise<Array>} - The user's easter eggs
  */
-export async function getUserEasterEggs(userId, env) {
-  const d1 = getD1Client(env);
+export async function getUserEasterEggs(userId) {
+  const d1 = getD1Client();
   try {
     const userEasterEggs = await d1.userEasterEgg.findMany({
       where: { user_id: userId }
@@ -152,11 +148,10 @@ export async function getUserEasterEggs(userId, env) {
 /**
  * Get all secret settings for a user
  * @param {number} userId - The ID of the user
- * @param {Object} [env] - The environment object
  * @returns {Promise<Array>} - The user's secret settings
  */
-export async function getUserSecretSettings(userId, env) {
-  const d1 = getD1Client(env);
+export async function getUserSecretSettings(userId) {
+  const d1 = getD1Client();
   try {
     const userSecretSettings = await d1.userSecretSetting.findMany({
       where: { user_id: userId }
@@ -170,11 +165,10 @@ export async function getUserSecretSettings(userId, env) {
 
 /**
  * Get all achievements
- * @param {Object} [env] - The environment object
  * @returns {Promise<Array>} - All achievements
  */
-export async function getAllAchievements(env) {
-  const d1 = getD1Client(env);
+export async function getAllAchievements() {
+  const d1 = getD1Client();
   try {
     const achievements = await d1.achievement.findMany();
     return achievements;
@@ -189,11 +183,10 @@ export async function getAllAchievements(env) {
  * @param {string} code - The code of the achievement
  * @param {string} name - The name of the achievement
  * @param {string} description - The description of the achievement
- * @param {Object} [env] - The environment object
  * @returns {Promise<Object>} - The created achievement
  */
-export async function createAchievement(code, name, description, env) {
-  const d1 = getD1Client(env);
+export async function createAchievement(code, name, description) {
+  const d1 = getD1Client();
   try {
     // Check if achievement with this code already exists
     const existingAchievement = await d1.achievement.findUnique({
@@ -224,11 +217,10 @@ export async function createAchievement(code, name, description, env) {
  * @param {number} id - The ID of the achievement to update
  * @param {string} name - The new name of the achievement
  * @param {string} description - The new description of the achievement
- * @param {Object} [env] - The environment object
  * @returns {Promise<Object>} - The updated achievement
  */
-export async function updateAchievement(id, name, description, env) {
-  const d1 = getD1Client(env);
+export async function updateAchievement(id, name, description) {
+  const d1 = getD1Client();
   try {
     const achievement = await d1.achievement.update({
       where: { id },
@@ -248,11 +240,10 @@ export async function updateAchievement(id, name, description, env) {
 /**
  * Delete an achievement
  * @param {number} id - The ID of the achievement to delete
- * @param {Object} [env] - The environment object
  * @returns {Promise<Object>} - The deleted achievement
  */
-export async function deleteAchievement(id, env) {
-  const d1 = getD1Client(env);
+export async function deleteAchievement(id) {
+  const d1 = getD1Client();
   try {
     // Check if achievement is being used by any users
     const userAchievements = await d1.userAchievement.findMany({
@@ -303,9 +294,9 @@ export function onRequest(context) {
         const token = requestData.token;
 
         if (!userId || !token) {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            message: 'Authentication required' 
+          return new Response(JSON.stringify({
+            success: false,
+            message: 'Authentication required'
           }), {
             status: 401,
             headers: { 'Content-Type': 'application/json' }
@@ -321,9 +312,9 @@ export function onRequest(context) {
         });
 
         if (!user) {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            message: 'Invalid authentication' 
+          return new Response(JSON.stringify({
+            success: false,
+            message: 'Invalid authentication'
           }), {
             status: 401,
             headers: { 'Content-Type': 'application/json' }
@@ -332,9 +323,9 @@ export function onRequest(context) {
 
         // Check if user is admin or root
         if (user.role !== 'admin' && user.role !== 'root') {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            message: 'Unauthorized. Admin or root access required.' 
+          return new Response(JSON.stringify({
+            success: false,
+            message: 'Unauthorized. Admin or root access required.'
           }), {
             status: 403,
             headers: { 'Content-Type': 'application/json' }
@@ -342,10 +333,10 @@ export function onRequest(context) {
         }
 
         // Get all achievements
-        const achievements = await getAllAchievements(env);
+        const achievements = await getAllAchievements();
 
-        return new Response(JSON.stringify({ 
-          success: true, 
+        return new Response(JSON.stringify({
+          success: true,
           achievements
         }), {
           status: 200,
@@ -354,14 +345,14 @@ export function onRequest(context) {
       } catch (error) {
         console.error('Get all achievements error:', error);
         return new Response(JSON.stringify({
-          success: false, 
-          message: 'An error occurred while fetching achievements' 
+          success: false,
+          message: 'An error occurred while fetching achievements'
         }), {
           status: 500,
           headers: { 'Content-Type': 'application/json' }
         });
       }
-    } 
+    }
     else if (action === 'createAchievement') {
       try {
         // Validate user authentication
@@ -372,9 +363,9 @@ export function onRequest(context) {
         const description = requestData.description;
 
         if (!userId || !token || !code || !name || !description) {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            message: 'Missing required parameters' 
+          return new Response(JSON.stringify({
+            success: false,
+            message: 'Missing required parameters'
           }), {
             status: 400,
             headers: { 'Content-Type': 'application/json' }
@@ -390,9 +381,9 @@ export function onRequest(context) {
         });
 
         if (!user) {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            message: 'Invalid authentication' 
+          return new Response(JSON.stringify({
+            success: false,
+            message: 'Invalid authentication'
           }), {
             status: 401,
             headers: { 'Content-Type': 'application/json' }
@@ -401,9 +392,9 @@ export function onRequest(context) {
 
         // Check if user is admin or root
         if (user.role !== 'admin' && user.role !== 'root') {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            message: 'Unauthorized. Admin or root access required.' 
+          return new Response(JSON.stringify({
+            success: false,
+            message: 'Unauthorized. Admin or root access required.'
           }), {
             status: 403,
             headers: { 'Content-Type': 'application/json' }
@@ -411,10 +402,10 @@ export function onRequest(context) {
         }
 
         // Create achievement
-        const achievement = await createAchievement(code, name, description, env);
+        const achievement = await createAchievement(code, name, description);
 
-        return new Response(JSON.stringify({ 
-          success: true, 
+        return new Response(JSON.stringify({
+          success: true,
           message: 'Achievement created successfully',
           achievement
         }), {
@@ -424,8 +415,8 @@ export function onRequest(context) {
       } catch (error) {
         console.error('Create achievement error:', error);
         return new Response(JSON.stringify({
-          success: false, 
-          message: error.message || 'An error occurred while creating achievement' 
+          success: false,
+          message: error.message || 'An error occurred while creating achievement'
         }), {
           status: 500,
           headers: { 'Content-Type': 'application/json' }
@@ -442,9 +433,9 @@ export function onRequest(context) {
         const description = requestData.description;
 
         if (!userId || !token || !achievementId || !name || !description) {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            message: 'Missing required parameters' 
+          return new Response(JSON.stringify({
+            success: false,
+            message: 'Missing required parameters'
           }), {
             status: 400,
             headers: { 'Content-Type': 'application/json' }
@@ -460,9 +451,9 @@ export function onRequest(context) {
         });
 
         if (!user) {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            message: 'Invalid authentication' 
+          return new Response(JSON.stringify({
+            success: false,
+            message: 'Invalid authentication'
           }), {
             status: 401,
             headers: { 'Content-Type': 'application/json' }
@@ -471,9 +462,9 @@ export function onRequest(context) {
 
         // Check if user is admin or root
         if (user.role !== 'admin' && user.role !== 'root') {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            message: 'Unauthorized. Admin or root access required.' 
+          return new Response(JSON.stringify({
+            success: false,
+            message: 'Unauthorized. Admin or root access required.'
           }), {
             status: 403,
             headers: { 'Content-Type': 'application/json' }
@@ -481,10 +472,10 @@ export function onRequest(context) {
         }
 
         // Update achievement
-        const achievement = await updateAchievement(parseInt(achievementId), name, description, env);
+        const achievement = await updateAchievement(parseInt(achievementId), name, description);
 
-        return new Response(JSON.stringify({ 
-          success: true, 
+        return new Response(JSON.stringify({
+          success: true,
           message: 'Achievement updated successfully',
           achievement
         }), {
@@ -494,8 +485,8 @@ export function onRequest(context) {
       } catch (error) {
         console.error('Update achievement error:', error);
         return new Response(JSON.stringify({
-          success: false, 
-          message: error.message || 'An error occurred while updating achievement' 
+          success: false,
+          message: error.message || 'An error occurred while updating achievement'
         }), {
           status: 500,
           headers: { 'Content-Type': 'application/json' }
@@ -510,9 +501,9 @@ export function onRequest(context) {
         const achievementId = requestData.achievementId;
 
         if (!userId || !token || !achievementId) {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            message: 'Missing required parameters' 
+          return new Response(JSON.stringify({
+            success: false,
+            message: 'Missing required parameters'
           }), {
             status: 400,
             headers: { 'Content-Type': 'application/json' }
@@ -528,9 +519,9 @@ export function onRequest(context) {
         });
 
         if (!user) {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            message: 'Invalid authentication' 
+          return new Response(JSON.stringify({
+            success: false,
+            message: 'Invalid authentication'
           }), {
             status: 401,
             headers: { 'Content-Type': 'application/json' }
@@ -539,9 +530,9 @@ export function onRequest(context) {
 
         // Check if user is admin or root
         if (user.role !== 'admin' && user.role !== 'root') {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            message: 'Unauthorized. Admin or root access required.' 
+          return new Response(JSON.stringify({
+            success: false,
+            message: 'Unauthorized. Admin or root access required.'
           }), {
             status: 403,
             headers: { 'Content-Type': 'application/json' }
@@ -549,10 +540,10 @@ export function onRequest(context) {
         }
 
         // Delete achievement
-        const achievement = await deleteAchievement(parseInt(achievementId), env);
+        const achievement = await deleteAchievement(parseInt(achievementId));
 
-        return new Response(JSON.stringify({ 
-          success: true, 
+        return new Response(JSON.stringify({
+          success: true,
           message: 'Achievement deleted successfully',
           achievement
         }), {
@@ -562,8 +553,8 @@ export function onRequest(context) {
       } catch (error) {
         console.error('Delete achievement error:', error);
         return new Response(JSON.stringify({
-          success: false, 
-          message: error.message || 'An error occurred while deleting achievement' 
+          success: false,
+          message: error.message || 'An error occurred while deleting achievement'
         }), {
           status: 500,
           headers: { 'Content-Type': 'application/json' }
@@ -571,9 +562,9 @@ export function onRequest(context) {
       }
     }
 
-    return new Response(JSON.stringify({ 
-      success: false, 
-      message: 'Invalid action' 
+    return new Response(JSON.stringify({
+      success: false,
+      message: 'Invalid action'
     }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' }

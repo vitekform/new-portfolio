@@ -50,7 +50,7 @@ export function onRequest(context) {
         const request = context.request;
         const env = context.env;
 
-        // Always initialize and get D1 client with env
+        // Initialize the D1 client with the environment
         initializeD1Client(env);
         const d1 = getD1Client(env);
 
@@ -71,9 +71,9 @@ export function onRequest(context) {
                 const status = requestData.status; // Optional status filter
 
                 if (!userId || !token) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Authentication required' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Authentication required'
                     }), {
                         status: 401,
                         headers: { 'Content-Type': 'application/json' }
@@ -93,9 +93,9 @@ export function onRequest(context) {
                 });
 
                 if (!user) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Invalid authentication' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid authentication'
                     }), {
                         status: 401,
                         headers: { 'Content-Type': 'application/json' }
@@ -104,9 +104,9 @@ export function onRequest(context) {
 
                 // Check if user is admin or root
                 if (user.role !== 'admin' && user.role !== 'root') {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Unauthorized. Admin or root access required.' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Unauthorized. Admin or root access required.'
                     }), {
                         status: 403,
                         headers: { 'Content-Type': 'application/json' }
@@ -143,8 +143,8 @@ export function onRequest(context) {
                     }
                 });
 
-                return new Response(JSON.stringify({ 
-                    success: true, 
+                return new Response(JSON.stringify({
+                    success: true,
                     serviceRequests
                 }), {
                     status: 200,
@@ -153,8 +153,8 @@ export function onRequest(context) {
             } catch (error) {
                 console.error('Get service requests error:', error);
                 return new Response(JSON.stringify({
-                    success: false, 
-                    message: 'An error occurred while fetching service requests' 
+                    success: false,
+                    message: 'An error occurred while fetching service requests'
                 }), {
                     status: 500,
                     headers: { 'Content-Type': 'application/json' }
@@ -169,9 +169,9 @@ export function onRequest(context) {
                 const status = requestData.status;
 
                 if (!userId || !token || !requestId || !status) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Missing required parameters' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Missing required parameters'
                     }), {
                         status: 400,
                         headers: { 'Content-Type': 'application/json' }
@@ -180,9 +180,9 @@ export function onRequest(context) {
 
                 // Validate status
                 if (status !== 'approved' && status !== 'rejected' && status !== 'pending') {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Invalid status. Must be approved, rejected, or pending.' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid status. Must be approved, rejected, or pending.'
                     }), {
                         status: 400,
                         headers: { 'Content-Type': 'application/json' }
@@ -202,9 +202,9 @@ export function onRequest(context) {
                 });
 
                 if (!user) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Invalid authentication' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid authentication'
                     }), {
                         status: 401,
                         headers: { 'Content-Type': 'application/json' }
@@ -213,9 +213,9 @@ export function onRequest(context) {
 
                 // Check if user is admin or root
                 if (user.role !== 'admin' && user.role !== 'root') {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Unauthorized. Admin or root access required.' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Unauthorized. Admin or root access required.'
                     }), {
                         status: 403,
                         headers: { 'Content-Type': 'application/json' }
@@ -230,9 +230,9 @@ export function onRequest(context) {
                 });
 
                 if (!serviceRequest) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Service request not found' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Service request not found'
                     }), {
                         status: 404,
                         headers: { 'Content-Type': 'application/json' }
@@ -249,8 +249,8 @@ export function onRequest(context) {
                     }
                 });
 
-                return new Response(JSON.stringify({ 
-                    success: true, 
+                return new Response(JSON.stringify({
+                    success: true,
                     message: `Service request ${status} successfully`,
                     serviceRequest: updatedRequest
                 }), {
@@ -260,8 +260,8 @@ export function onRequest(context) {
             } catch (error) {
                 console.error('Update service request status error:', error);
                 return new Response(JSON.stringify({
-                    success: false, 
-                    message: 'An error occurred while updating service request status' 
+                    success: false,
+                    message: 'An error occurred while updating service request status'
                 }), {
                     status: 500,
                     headers: { 'Content-Type': 'application/json' }
@@ -274,9 +274,9 @@ export function onRequest(context) {
                 const token = requestData.token;
 
                 if (!userId || !token) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Authentication required' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Authentication required'
                     }), {
                         status: 401,
                         headers: { 'Content-Type': 'application/json' }
@@ -295,9 +295,9 @@ export function onRequest(context) {
                 });
 
                 if (!user) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Invalid authentication' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid authentication'
                     }), {
                         status: 401,
                         headers: { 'Content-Type': 'application/json' }
@@ -316,8 +316,8 @@ export function onRequest(context) {
                     }
                 });
 
-                return new Response(JSON.stringify({ 
-                    success: true, 
+                return new Response(JSON.stringify({
+                    success: true,
                     services: services
                 }), {
                     status: 200,
@@ -326,8 +326,8 @@ export function onRequest(context) {
             } catch (error) {
                 console.error('Get services error:', error);
                 return new Response(JSON.stringify({
-                    success: false, 
-                    message: 'An error occurred while fetching services' 
+                    success: false,
+                    message: 'An error occurred while fetching services'
                 }), {
                     status: 500,
                     headers: { 'Content-Type': 'application/json' }
@@ -342,9 +342,9 @@ export function onRequest(context) {
                 const details = requestData.details;
 
                 if (!userId || !token || !serviceId || !details) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Missing required parameters' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Missing required parameters'
                     }), {
                         status: 400,
                         headers: { 'Content-Type': 'application/json' }
@@ -363,9 +363,9 @@ export function onRequest(context) {
                 });
 
                 if (!user) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Invalid authentication' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid authentication'
                     }), {
                         status: 401,
                         headers: { 'Content-Type': 'application/json' }
@@ -383,9 +383,9 @@ export function onRequest(context) {
                 });
 
                 if (!service) {
-                    return new Response(JSON.stringify({ 
-                        success: false, 
-                        message: 'Service not found' 
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Service not found'
                     }), {
                         status: 404,
                         headers: { 'Content-Type': 'application/json' }
@@ -401,8 +401,8 @@ export function onRequest(context) {
                     }
                 });
 
-                return new Response(JSON.stringify({ 
-                    success: true, 
+                return new Response(JSON.stringify({
+                    success: true,
                     message: 'Service request submitted successfully',
                     requestId: serviceRequest.id
                 }), {
@@ -412,17 +412,17 @@ export function onRequest(context) {
             } catch (error) {
                 console.error('Request service error:', error);
                 return new Response(JSON.stringify({
-                    success: false, 
-                    message: 'An error occurred while submitting your request' 
+                    success: false,
+                    message: 'An error occurred while submitting your request'
                 }), {
                     status: 500,
                     headers: { 'Content-Type': 'application/json' }
                 });
             }
         } else {
-            return new Response(JSON.stringify({ 
-                success: false, 
-                message: 'Invalid action' 
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'Invalid action'
             }), {
                 status: 400,
                 headers: { 'Content-Type': 'application/json' }
