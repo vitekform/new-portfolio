@@ -1,782 +1,322 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import sgMail from '@sendgrid/mail';
-import getD1Client, { initializeD1Client } from '../lib/d1.js'; // Use D1 client
+import prisma from '../lib/prisma.js';
+import * as Sentry from '@sentry/node';
 import { awardAchievement } from './achievementUtils.js';
 
-export function onRequest(context) {
-    return (async () => {
-        const request = context.request;
-        const env = context.env;
+Sentry.init({
+    dsn: "https://342a3da4b820d22a01431d0c0201a770@o4508938006626304.ingest.de.sentry.io/4509362550734928",
 
-        // Initialize the D1 client with the environment
-        initializeD1Client(env);
-        const d1 = getD1Client(env);
+    // Setting this option to true will send default PII data to Sentry.
+    // For example, automatic IP address collection on events
+    sendDefaultPii: true,
+});
 
-        // Parse the request body
-        const requestData = await request.json();
-        const action = requestData.action;
+export async function POST(request) {
+    // Parse the request body
+    const requestData = await request.json();
+    const action = requestData.action;
 
-        if (action === 'register') {
-            try {
-                const username = requestData.username;
-                const email = requestData.email;
-                const password = requestData.password;
+    if (action === 'register') {
+        try {
+            const username = requestData.username;
+            const email = requestData.email;
+            const password = requestData.password;
 
-                // Validate input
-                if (!username || !email || !password) {
-                    return new Response(JSON.stringify({
-                        success: false,
-                        message: 'Missing required fields'
-                    }), {
-                        status: 400,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                }
-
-                // Check if username or email already exists
-                // Check for existing user with the same username or email
-                const existingUser = await d1.user.findFirst({
-                    where: {
-                        OR: [
-                            { username: username },
-                            { email: email }
-                        ]
-                    }
-                });
-
-                if (existingUser) {
-                    // User already exists
-                    const isDuplicateUsername = existingUser.username === username;
-                    const isDuplicateEmail = existingUser.email === email;
-
-                    let message = '';
-                    if (isDuplicateUsername && isDuplicateEmail) {
-                        message = 'Both username and email are already taken';
-                    } else if (isDuplicateUsername) {
-                        message = 'Username is already taken';
-                    } else {
-                        message = 'Email is already taken';
-                    }
-
-                    return new Response(JSON.stringify({
-                        success: false,
-                        message: message
-                    }), {
-                        status: 409,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                }
-
-                // Hash the password using bcrypt
-                const saltRounds = 10;
-                const password_hashed = await bcrypt.hash(password, saltRounds);
-
-                // Generate a secure random token of 256 characters
-                const token = crypto.randomBytes(128).toString('hex'); // 128 bytes = 256 hex characters
-
-                // Insert new user
-                const newUser = await d1.user.create({
-                    data: {
-                        username,
-                        email,
-                        password: password_hashed,
-                        token,
-                        role: "unverified"
-                    }
-                });
-
-                // Get the new user's ID
-                const newUserId = newUser.id;
-
-                // Award the "Big Mistake" achievement
-                try {
-                    await awardAchievement(newUserId, 'BIG_MISTAKE');
-                } catch (achievementError) {
-                    console.error('Error awarding achievement:', achievementError);
-                }
-
-                // Generate a verification token
-                const verificationToken = crypto.randomBytes(32).toString('hex');
-                const verificationExpiry = new Date();
-                verificationExpiry.setHours(verificationExpiry.getHours() + 24); // Token valid for 24 hours
-
-                // Store verification token in user's record
-                await d1.user.update({
-                    where: { id: newUserId },
-                    data: {
-                        verification_tokens: {
-                            email: verificationToken,
-                            expiry: verificationExpiry.toISOString()
-                        }
-                    }
-                });
-
-                // Send verification email
-                try {
-                    if (process.env.SENDGRID_API_KEY) {
-                        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
-                        const verificationUrl = `${process.env.SITE_URL || 'https://vitek.dev'}/verify?token=${verificationToken}&userId=${newUserId}`;
-
-                        const msg = {
-                            to: email,
-                            from: process.env.SENDGRID_FROM_EMAIL || 'noreply@vitek.dev',
-                            subject: 'Verify your email address',
-                            text: `Welcome to the site! Please verify your email address by clicking the following link: ${verificationUrl}`,
-                            html: `
-                                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                                        <h2 style="color: #333;">Welcome to the site!</h2>
-                                        <p>Thank you for registering. Please verify your email address by clicking the button below:</p>
-                                        <div style="text-align: center; margin: 30px 0;">
-                                            <a href="${verificationUrl}" style="background-color: #4CAF50; color: white; padding: 15px 32px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; border-radius: 5px;">Verify Email</a>
-                                        </div>
-                                        <p>If the button doesn't work, you can also copy and paste the following link into your browser:</p>
-                                        <p style="word-break: break-all; color: #666;">${verificationUrl}</p>
-                                        <p>This link will expire in 24 hours.</p>
-                                        <hr style="border: 1px solid #eee; margin: 30px 0;">
-                                        <p style="color: #999; font-size: 12px;">If you didn't register for an account, you can safely ignore this email.</p>
-                                    </div>
-                                `
-                        };
-
-                        await sgMail.send(msg);
-                        console.log('Verification email sent successfully');
-                    } else {
-                        console.warn('SENDGRID_API_KEY not set, skipping email verification');
-                    }
-                } catch (emailError) {
-                    console.error('Error sending verification email:', emailError);
-                    // Continue with registration even if email fails
-                }
-
-                // Return success response with user ID and token
-                return new Response(JSON.stringify({
-                    success: true,
-                    message: 'Registration successful. Please check your email to verify your account.',
-                    userId: newUserId,
-                    token: token
-                }), {
-                    status: 201,
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            } catch (error) {
-                console.error('Registration error:', error);
+            // Validate input
+            if (!username || !email || !password) {
                 return new Response(JSON.stringify({
                     success: false,
-                    message: 'An error occurred during registration'
+                    message: 'Missing required fields'
                 }), {
-                    status: 500,
+                    status: 400,
                     headers: { 'Content-Type': 'application/json' }
                 });
             }
-        }
 
-        // Handle login action
-        else if (action === 'login') {
+            // Check if username or email already exists
+            // Check for existing user with the same username or email
+            const existingUser = await prisma.user.findFirst({
+                where: {
+                    OR: [
+                        { username: username },
+                        { email: email }
+                    ]
+                }
+            });
+
+            if (existingUser) {
+                // User already exists
+                const isDuplicateUsername = existingUser.username === username;
+                const isDuplicateEmail = existingUser.email === email;
+
+                let message = '';
+                if (isDuplicateUsername && isDuplicateEmail) {
+                    message = 'Both username and email are already taken';
+                } else if (isDuplicateUsername) {
+                    message = 'Username is already taken';
+                } else {
+                    message = 'Email is already taken';
+                }
+
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: message
+                }), {
+                    status: 409,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            // Hash the password using bcrypt
+            const saltRounds = 10;
+            const password_hashed = await bcrypt.hash(password, saltRounds);
+
+            // Generate a secure random token of 256 characters
+            const token = crypto.randomBytes(128).toString('hex'); // 128 bytes = 256 hex characters
+
+            // Insert new user
+            const newUser = await prisma.user.create({
+                data: {
+                    username,
+                    email,
+                    password: password_hashed,
+                    token,
+                    role: "unverified"
+                }
+            });
+
+            // Get the new user's ID
+            const newUserId = newUser.id;
+
+            // Award the "Big Mistake" achievement
             try {
-                const username = requestData.username;
-                const password = requestData.password;
-                const userAgent = requestData.userAgent || 'Unknown';
+                await awardAchievement(newUserId, 'BIG_MISTAKE');
+            } catch (achievementError) {
+                Sentry.captureException(achievementError);
+                console.error('Error awarding achievement:', achievementError);
+                // Continue with registration even if awarding achievement fails
+            }
 
-                // Validate input
-                if (!username || !password) {
+            // Send welcome email
+            try {
+                // Initialize SendGrid with API key
+                sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+                // Compose welcome email
+                const msg = {
+                    to: email,
+                    from: process.env.SENDGRID_FROM_EMAIL,
+                    subject: 'Welcome to Our Platform!',
+                    html: `
+                            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                                <h2>Welcome to Our Platform!</h2>
+                                <p>Hello ${username},</p>
+                                <p>Thank you for registering with us. We're excited to have you on board!</p>
+                                <p>Your account has been created successfully. To get started, please verify your email address by clicking the verification link we've sent in a separate email.</p>
+                                <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
+                                <p>Best regards,<br>The Team</p>
+                            </div>
+                        `
+                };
+
+                // Send welcome email (don't wait for it to complete)
+                sgMail.send(msg).catch(err => {
+                    Sentry.captureException(err);
+                    console.error('Error sending welcome email:', err);
+                });
+            } catch (emailError) {
+                Sentry.captureException(emailError);
+                console.error('Error preparing welcome email:', emailError);
+                // Continue with registration even if welcome email fails
+            }
+
+            return new Response(JSON.stringify({
+                success: true,
+                message: 'User registered successfully',
+                userId: newUserId,
+                token: token
+            }), {
+                status: 201,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        } catch (error) {
+            Sentry.captureException(error);
+            console.error('Registration error:', error);
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'An error occurred during registration'
+            }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    } else if (action === 'login') {
+        try {
+            // Get login credentials from request body
+            const usernameOrEmail = requestData.username;
+            const password = requestData.password;
+
+            // Validate input
+            if (!usernameOrEmail || !password) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Missing username/email or password'
+                }), {
+                    status: 400,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            try {
+                // Check if user exists by username or email
+                const user = await prisma.user.findFirst({
+                    where: {
+                        OR: [
+                            { username: usernameOrEmail },
+                            { email: usernameOrEmail }
+                        ]
+                    },
+                    select: {
+                        id: true,
+                        username: true,
+                        password: true,
+                        token: true
+                    }
+                });
+
+                // If no user found
+                if (!user) {
                     return new Response(JSON.stringify({
                         success: false,
-                        message: 'Missing username or password'
+                        message: 'Invalid username/email or password'
                     }), {
-                        status: 400,
+                        status: 401,
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
 
-                try {
-                    // Find user by username
-                    const user = await d1.user.findFirst({
-                        where: {
-                            OR: [
-                                { username: username },
-                                { email: username }
-                            ]
-                        }
+                // Verify password using bcrypt
+                const passwordMatch = await bcrypt.compare(password, user.password);
+                if (!passwordMatch) {
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid username/email or password'
+                    }), {
+                        status: 401,
+                        headers: { 'Content-Type': 'application/json' }
                     });
+                }
 
-                    // If no user found
-                    if (!user) {
-                        return new Response(JSON.stringify({
-                            success: false,
-                            message: 'Invalid username or password'
-                        }), {
-                            status: 401,
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                    }
-
-                    // Check password
-                    const passwordMatch = await bcrypt.compare(password, user.password);
-                    if (!passwordMatch) {
-                        return new Response(JSON.stringify({
-                            success: false,
-                            message: 'Invalid username or password'
-                        }), {
-                            status: 401,
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                    }
-
-                    // Generate a new token
-                    const token = crypto.randomBytes(128).toString('hex');
-
-                    // Update user's token
-                    await d1.user.update({
+                // Generate a new token or use existing one
+                let token = user.token;
+                if (!token) {
+                    token = crypto.randomBytes(128).toString('hex'); // 128 bytes = 256 hex characters
+                    await prisma.user.update({
                         where: { id: user.id },
                         data: { token: token }
                     });
-
-                    // Track device information
-                    try {
-                        // Generate a unique device ID based on user agent
-                        const deviceId = crypto.createHash('md5').update(userAgent).digest('hex');
-
-                        // Get current device history
-                        let deviceHistory = user.device_history || [];
-
-                        // Check if this device is already in history
-                        const existingDevice = Array.isArray(deviceHistory)
-                            ? deviceHistory.find(device => device.id === deviceId)
-                            : null;
-
-                        let deviceInfo;
-
-                        // If this is a new device, add it to history
-                        if (!existingDevice) {
-                            deviceInfo = {
-                                id: deviceId,
-                                user_agent: userAgent,
-                                first_seen: new Date().toISOString(),
-                                last_used: new Date().toISOString()
-                            };
-
-                            // Return with device verification required flag
-                            return new Response(JSON.stringify({
-                                success: true,
-                                message: 'Login successful, but device verification required',
-                                requireDeviceVerification: true,
-                                userId: user.id,
-                                token: token
-                            }), {
-                                status: 200,
-                                headers: { 'Content-Type': 'application/json' }
-                            });
-                        }
-
-                        // Known device, update last used timestamp
-                        deviceInfo = {
-                            id: deviceId,
-                            user_agent: userAgent,
-                            last_used: new Date().toISOString()
-                        };
-
-                        // Update device history
-                        if (Array.isArray(deviceHistory)) {
-                            // Remove this device if it exists
-                            const updatedHistory = deviceHistory.filter(device => device.id !== deviceId);
-                            // Add updated device info
-                            updatedHistory.push(deviceInfo);
-                            // Keep only the last 5 devices
-                            const limitedHistory = updatedHistory.slice(-5);
-
-                            // Update device history using D1
-                            await d1.user.update({
-                                where: { id: user.id },
-                                data: { device_history: limitedHistory }
-                            });
-                        } else {
-                            // Initialize device history using D1
-                            await d1.user.update({
-                                where: { id: user.id },
-                                data: { device_history: [deviceInfo] }
-                            });
-                        }
-                    } catch (deviceError) {
-                        console.error('Device tracking error:', deviceError);
-                        // Continue with login even if device tracking fails
-                    }
-
-                    // Return user ID and token
-                    return new Response(JSON.stringify({
-                        success: true,
-                        message: 'Login successful',
-                        userId: user.id,
-                        token: token
-                    }), {
-                        status: 200,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                } catch (dbError) {
-                    console.error('Database operation error:', dbError);
-                    throw dbError; // Re-throw to be caught by the outer catch block
-                }
-            } catch (error) {
-                console.error('Login error:', error);
-                return new Response(JSON.stringify({
-                    success: false,
-                    message: 'An error occurred during login'
-                }), {
-                    status: 500,
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-        }
-
-        // Handle getUserData action
-        else if (action === 'getUserData') {
-            try {
-                const userId = requestData.userId;
-                const token = requestData.token;
-
-                // Validate input
-                if (!userId || !token) {
-                    return new Response(JSON.stringify({
-                        success: false,
-                        message: 'Missing user ID or token'
-                    }), {
-                        status: 400,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
                 }
 
+                // Check if device tracking is enabled
+                let deviceInfo = null;
                 try {
-                    // Check if user exists and token is valid
-                    const userData = await d1.user.findFirst({
-                        where: {
-                            id: parseInt(userId),
-                            token: token
-                        },
+                    // Get device info from request headers
+                    const userAgent = request.headers.get('user-agent') || 'Unknown';
+
+                    // Get user's full details including device history
+                    const userData = await prisma.user.findUnique({
+                        where: { id: user.id },
                         select: {
                             id: true,
                             username: true,
                             email: true,
-                            role: true
+                            device_history: true
                         }
                     });
 
-                    // If no user found or token doesn't match
-                    if (!userData) {
-                        return new Response(JSON.stringify({
-                            success: false,
-                            message: 'Invalid user ID or token'
-                        }), {
-                            status: 401,
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                    }
+                    // Parse device history (it's stored as JSON)
+                    const deviceHistory = userData.device_history || [];
 
-                    // Return user data (excluding sensitive information)
-                    return new Response(JSON.stringify({
-                        success: true,
-                        userData: {
-                            id: userData.id,
-                            username: userData.username,
-                            email: userData.email,
-                            role: userData.role
-                        }
-                    }), {
-                        status: 200,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                } catch (dbError) {
-                    console.error('Database operation error:', dbError);
-                    throw dbError; // Re-throw to be caught by the outer catch block
-                }
-            } catch (error) {
-                console.error('Get user data error:', error);
-                return new Response(JSON.stringify({
-                    success: false,
-                    message: 'An error occurred while fetching user data'
-                }), {
-                    status: 500,
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-        }
-
-        // Handle verifyEmail action
-        else if (action === 'verifyEmail') {
-            try {
-                const token = requestData.token;
-                const userId = requestData.userId;
-
-                // Validate input
-                if (!token || !userId) {
-                    return new Response(JSON.stringify({
-                        success: false,
-                        message: 'Missing token or user ID'
-                    }), {
-                        status: 400,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                }
-
-                try {
-                    // Find user by ID
-                    const user = await d1.user.findUnique({
-                        where: { id: parseInt(userId) }
-                    });
-
-                    // If no user found
-                    if (!user) {
-                        return new Response(JSON.stringify({
-                            success: false,
-                            message: 'User not found'
-                        }), {
-                            status: 404,
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                    }
-
-                    // Check if user is already verified
-                    if (user.role !== 'unverified') {
-                        return new Response(JSON.stringify({
-                            success: true,
-                            message: 'Email already verified'
-                        }), {
-                            status: 200,
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                    }
-
-                    // Check if verification token exists and is valid
-                    const verificationTokens = user.verification_tokens || {};
-
-                    if (!verificationTokens.email || verificationTokens.email !== token) {
-                        return new Response(JSON.stringify({
-                            success: false,
-                            message: 'Invalid verification token'
-                        }), {
-                            status: 400,
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                    }
-
-                    // Check if token is expired
-                    if (verificationTokens.expiry) {
-                        const expiryDate = new Date(verificationTokens.expiry);
-                        if (expiryDate < new Date()) {
-                            return new Response(JSON.stringify({
-                                success: false,
-                                message: 'Verification token has expired'
-                            }), {
-                                status: 400,
-                                headers: { 'Content-Type': 'application/json' }
-                            });
-                        }
-                    }
-
-                    // Update user role to 'user' (verified)
-                    await d1.user.update({
-                        where: { id: parseInt(userId) },
-                        data: {
-                            role: 'user',
-                            verification_tokens: {} // Clear verification tokens
-                        }
-                    });
-
-                    // Award the "Verified" achievement
-                    try {
-                        await awardAchievement(parseInt(userId), 'VERIFIED');
-                    } catch (achievementError) {
-                        console.error('Error awarding achievement:', achievementError);
-                    }
-
-                    // Return success response
-                    return new Response(JSON.stringify({
-                        success: true,
-                        message: 'Email verified successfully'
-                    }), {
-                        status: 200,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                } catch (dbError) {
-                    console.error('Database operation error:', dbError);
-                    throw dbError; // Re-throw to be caught by the outer catch block
-                }
-            } catch (error) {
-                console.error('Email verification error:', error);
-                return new Response(JSON.stringify({
-                    success: false,
-                    message: 'An error occurred during email verification'
-                }), {
-                    status: 500,
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-        }
-
-        // Handle forgotPassword action
-        else if (action === 'forgotPassword') {
-            try {
-                const email = requestData.email;
-
-                // Validate input
-                if (!email) {
-                    return new Response(JSON.stringify({
-                        success: false,
-                        message: 'Email is required'
-                    }), {
-                        status: 400,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                }
-
-                try {
-                    // Find user by email
-                    const user = await d1.user.findUnique({
-                        where: { email: email }
-                    });
-
-                    // If no user found, still return success to prevent email enumeration
-                    if (!user) {
-                        return new Response(JSON.stringify({
-                            success: true,
-                            message: 'If your email is registered, you will receive a password reset link'
-                        }), {
-                            status: 200,
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                    }
-
-                    // Generate a reset token
-                    const resetToken = crypto.randomBytes(32).toString('hex');
-                    const resetExpiry = new Date();
-                    resetExpiry.setHours(resetExpiry.getHours() + 1); // Token valid for 1 hour
-
-                    // Store reset token in user's record
-                    const verificationTokens = user.verification_tokens || {};
-                    verificationTokens.reset = resetToken;
-                    verificationTokens.resetExpiry = resetExpiry.toISOString();
-
-                    await d1.user.update({
-                        where: { id: user.id },
-                        data: { verification_tokens: verificationTokens }
-                    });
-
-                    // Send reset email
-                    try {
-                        if (process.env.SENDGRID_API_KEY) {
-                            sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
-                            const resetUrl = `${process.env.SITE_URL || 'https://vitek.dev'}/reset-password?token=${resetToken}&userId=${user.id}`;
-
-                            const msg = {
-                                to: email,
-                                from: process.env.SENDGRID_FROM_EMAIL || 'noreply@vitek.dev',
-                                subject: 'Reset your password',
-                                text: `You requested to reset your password. Please click the following link to reset your password: ${resetUrl}. This link will expire in 1 hour.`,
-                                html: `
-                                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                                        <h2 style="color: #333;">Password Reset Request</h2>
-                                        <p>You requested to reset your password. Please click the button below to set a new password:</p>
-                                        <div style="text-align: center; margin: 30px 0;">
-                                            <a href="${resetUrl}" style="background-color: #4CAF50; color: white; padding: 15px 32px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; border-radius: 5px;">Reset Password</a>
-                                        </div>
-                                        <p>If the button doesn't work, you can also copy and paste the following link into your browser:</p>
-                                        <p style="word-break: break-all; color: #666;">${resetUrl}</p>
-                                        <p>This link will expire in 1 hour.</p>
-                                        <hr style="border: 1px solid #eee; margin: 30px 0;">
-                                        <p style="color: #999; font-size: 12px;">If you didn't request a password reset, you can safely ignore this email.</p>
-                                    </div>
-                                `
-                            };
-
-                            await sgMail.send(msg);
-                            console.log('Password reset email sent successfully');
-                        } else {
-                            console.warn('SENDGRID_API_KEY not set, skipping password reset email');
-                        }
-                    } catch (emailError) {
-                        console.error('Error sending password reset email:', emailError);
-                        // Continue even if email fails
-                    }
-
-                    // Return success response
-                    return new Response(JSON.stringify({
-                        success: true,
-                        message: 'If your email is registered, you will receive a password reset link'
-                    }), {
-                        status: 200,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                } catch (dbError) {
-                    console.error('Database operation error:', dbError);
-                    throw dbError; // Re-throw to be caught by the outer catch block
-                }
-            } catch (error) {
-                console.error('Forgot password error:', error);
-                return new Response(JSON.stringify({
-                    success: false,
-                    message: 'An error occurred while processing your request'
-                }), {
-                    status: 500,
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-        }
-
-        // Handle resetPassword action
-        else if (action === 'resetPassword') {
-            try {
-                const token = requestData.token;
-                const userId = requestData.userId;
-                const newPassword = requestData.newPassword;
-
-                // Validate input
-                if (!token || !userId || !newPassword) {
-                    return new Response(JSON.stringify({
-                        success: false,
-                        message: 'Missing required fields'
-                    }), {
-                        status: 400,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                }
-
-                try {
-                    // Find user by ID
-                    const user = await d1.user.findUnique({
-                        where: { id: parseInt(userId) }
-                    });
-
-                    // If no user found
-                    if (!user) {
-                        return new Response(JSON.stringify({
-                            success: false,
-                            message: 'User not found'
-                        }), {
-                            status: 404,
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                    }
-
-                    // Check if reset token exists and is valid
-                    const verificationTokens = user.verification_tokens || {};
-
-                    if (!verificationTokens.reset || verificationTokens.reset !== token) {
-                        return new Response(JSON.stringify({
-                            success: false,
-                            message: 'Invalid reset token'
-                        }), {
-                            status: 400,
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                    }
-
-                    // Check if token is expired
-                    if (verificationTokens.resetExpiry) {
-                        const expiryDate = new Date(verificationTokens.resetExpiry);
-                        if (expiryDate < new Date()) {
-                            return new Response(JSON.stringify({
-                                success: false,
-                                message: 'Reset token has expired'
-                            }), {
-                                status: 400,
-                                headers: { 'Content-Type': 'application/json' }
-                            });
-                        }
-                    }
-
-                    // Hash the new password
-                    const saltRounds = 10;
-                    const password_hashed = await bcrypt.hash(newPassword, saltRounds);
-
-                    // Update user's password and clear reset token
-                    const updatedVerificationTokens = { ...verificationTokens };
-                    delete updatedVerificationTokens.reset;
-                    delete updatedVerificationTokens.resetExpiry;
-
-                    await d1.user.update({
-                        where: { id: parseInt(userId) },
-                        data: {
-                            password: password_hashed,
-                            verification_tokens: updatedVerificationTokens
-                        }
-                    });
-
-                    // Return success response
-                    return new Response(JSON.stringify({
-                        success: true,
-                        message: 'Password reset successfully'
-                    }), {
-                        status: 200,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                } catch (dbError) {
-                    console.error('Database operation error:', dbError);
-                    throw dbError; // Re-throw to be caught by the outer catch block
-                }
-            } catch (error) {
-                console.error('Reset password error:', error);
-                return new Response(JSON.stringify({
-                    success: false,
-                    message: 'An error occurred while resetting your password'
-                }), {
-                    status: 500,
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-        }
-
-        // Handle verifyDevice action
-        else if (action === 'verifyDevice') {
-            try {
-                const userId = requestData.userId;
-                const token = requestData.token;
-                const userAgent = requestData.userAgent || 'Unknown';
-
-                // Validate input
-                if (!userId || !token) {
-                    return new Response(JSON.stringify({
-                        success: false,
-                        message: 'Missing user ID or token'
-                    }), {
-                        status: 400,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                }
-
-                try {
-                    // Find user by ID and token
-                    const user = await d1.user.findFirst({
-                        where: {
-                            id: parseInt(userId),
-                            token: token
-                        }
-                    });
-
-                    // If no user found or token doesn't match
-                    if (!user) {
-                        return new Response(JSON.stringify({
-                            success: false,
-                            message: 'Invalid user ID or token'
-                        }), {
-                            status: 401,
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                    }
-
-                    // Generate a unique device ID based on user agent
+                    // Generate a device identifier based on user agent
                     const deviceId = crypto.createHash('md5').update(userAgent).digest('hex');
 
-                    // Get current device history
-                    let deviceHistory = user.device_history || [];
+                    // Check if this device is in the history
+                    const knownDevice = Array.isArray(deviceHistory) && deviceHistory.some(device => device.id === deviceId);
 
-                    // Create device info
-                    const deviceInfo = {
+                    if (!knownDevice) {
+                        // This is a new device, require verification
+                        // Generate a 6-digit auth code
+                        const authCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+                        // Store the auth code with expiration (15 minutes)
+                        const expiresAt = new Date();
+                        expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+
+                        // Store verification token
+                        await prisma.user.update({
+                            where: { id: user.id },
+                            data: {
+                                verification_tokens: {
+                                    device_verification: {
+                                        code: authCode,
+                                        device_id: deviceId,
+                                        user_agent: userAgent,
+                                        expires_at: expiresAt.toISOString()
+                                    }
+                                }
+                            }
+                        });
+
+                        // Send auth code via email
+                        // Initialize SendGrid with API key
+                        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+                        // We already have user email and username from userData
+                        const userEmail = userData.email;
+                        const username = userData.username;
+
+                        // Compose email
+                        const msg = {
+                            to: userEmail,
+                            from: process.env.SENDGRID_FROM_EMAIL,
+                            subject: 'Login Verification Code',
+                            html: `
+                                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                                    <h2>Login Verification</h2>
+                                    <p>Hello ${username},</p>
+                                    <p>We noticed a login attempt from a new device. For your security, please use the following code to verify your identity:</p>
+                                    <div style="text-align: center; margin: 30px 0;">
+                                        <div style="font-size: 24px; font-weight: bold; letter-spacing: 5px; padding: 15px; background-color: #f5f5f5; border-radius: 5px;">${authCode}</div>
+                                    </div>
+                                    <p>This code will expire in 15 minutes.</p>
+                                    <p>If you didn't attempt to log in, please ignore this email and consider changing your password.</p>
+                                </div>
+                            `
+                        };
+
+                        // Send email
+                        await sgMail.send(msg);
+
+                        // Return response indicating verification required
+                        return new Response(JSON.stringify({
+                            success: false,
+                            requireVerification: true,
+                            message: 'Login from new device detected. Verification code sent to your email.',
+                            userId: user.id,
+                            token: token
+                        }), {
+                            status: 200,
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                    }
+
+                    // Known device, update last used timestamp
+                    deviceInfo = {
                         id: deviceId,
                         user_agent: userAgent,
-                        first_seen: new Date().toISOString(),
-                        last_used: new Date().toISOString(),
-                        verified: true
+                        last_used: new Date().toISOString()
                     };
 
                     // Update device history
@@ -788,251 +328,1419 @@ export function onRequest(context) {
                         // Keep only the last 5 devices
                         const limitedHistory = updatedHistory.slice(-5);
 
-                        // Update device history
-                        await d1.user.update({
-                            where: { id: parseInt(userId) },
+                        // Update device history using Prisma
+                        await prisma.user.update({
+                            where: { id: user.id },
                             data: { device_history: limitedHistory }
                         });
                     } else {
-                        // Initialize device history
-                        await d1.user.update({
-                            where: { id: parseInt(userId) },
+                        // Initialize device history using Prisma
+                        await prisma.user.update({
+                            where: { id: user.id },
                             data: { device_history: [deviceInfo] }
                         });
                     }
-
-                    // Return success response
-                    return new Response(JSON.stringify({
-                        success: true,
-                        message: 'Device verified successfully'
-                    }), {
-                        status: 200,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                } catch (dbError) {
-                    console.error('Database operation error:', dbError);
-                    throw dbError; // Re-throw to be caught by the outer catch block
+                } catch (deviceError) {
+                    Sentry.captureException(deviceError);
+                    console.error('Device tracking error:', deviceError);
+                    // Continue with login even if device tracking fails
                 }
-            } catch (error) {
-                console.error('Device verification error:', error);
+
+                // Return user ID and token
                 return new Response(JSON.stringify({
-                    success: false,
-                    message: 'An error occurred during device verification'
+                    success: true,
+                    message: 'Login successful',
+                    userId: user.id,
+                    token: token
                 }), {
-                    status: 500,
+                    status: 200,
                     headers: { 'Content-Type': 'application/json' }
                 });
+            } catch (dbError) {
+                Sentry.captureException(dbError);
+                console.error('Database operation error:', dbError);
+                throw dbError; // Re-throw to be caught by the outer catch block
             }
-        }
-
-        // Handle logout action
-        else if (action === 'logout') {
-            try {
-                const userId = requestData.userId;
-                const token = requestData.token;
-
-                // Validate input
-                if (!userId || !token) {
-                    return new Response(JSON.stringify({
-                        success: false,
-                        message: 'Missing user ID or token'
-                    }), {
-                        status: 400,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                }
-
-                try {
-                    // Find user by ID and token
-                    const user = await d1.user.findFirst({
-                        where: {
-                            id: parseInt(userId),
-                            token: token
-                        }
-                    });
-
-                    // If no user found or token doesn't match, still return success
-                    if (!user) {
-                        return new Response(JSON.stringify({
-                            success: true,
-                            message: 'Logged out successfully'
-                        }), {
-                            status: 200,
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                    }
-
-                    // Invalidate the token
-                    await d1.user.update({
-                        where: { id: parseInt(userId) },
-                        data: { token: null }
-                    });
-
-                    // Return success response
-                    return new Response(JSON.stringify({
-                        success: true,
-                        message: 'Logged out successfully'
-                    }), {
-                        status: 200,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                } catch (dbError) {
-                    console.error('Database operation error:', dbError);
-                    throw dbError; // Re-throw to be caught by the outer catch block
-                }
-            } catch (error) {console.error('Logout error:', error);
-                return new Response(JSON.stringify({
-                    success: false,
-                    message: 'An error occurred during logout'
-                }), {
-                    status: 500,
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-        }
-
-        // Handle updateThemePreferences action
-        else if (action === 'updateThemePreferences') {
-            try {
-                const userId = requestData.userId;
-                const token = requestData.token;
-                const themePreferences = requestData.themePreferences;
-
-                // Validate input
-                if (!userId || !token || !themePreferences) {
-                    return new Response(JSON.stringify({
-                        success: false,
-                        message: 'Missing required fields'
-                    }), {
-                        status: 400,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                }
-
-                try {
-                    // Find user by ID and token
-                    const user = await d1.user.findFirst({
-                        where: {
-                            id: parseInt(userId),
-                            token: token
-                        }
-                    });
-
-                    // If no user found or token doesn't match
-                    if (!user) {
-                        return new Response(JSON.stringify({
-                            success: false,
-                            message: 'Invalid user ID or token'
-                        }), {
-                            status: 401,
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                    }
-
-                    // Update theme preferences
-                    await d1.user.update({
-                        where: { id: parseInt(userId) },
-                        data: { theme_preferences: themePreferences }
-                    });
-
-                    // Return success response
-                    return new Response(JSON.stringify({
-                        success: true,
-                        message: 'Theme preferences updated successfully'
-                    }), {
-                        status: 200,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                } catch (dbError) {
-                    console.error('Database operation error:', dbError);
-                    throw dbError; // Re-throw to be caught by the outer catch block
-                }
-            } catch (error) {
-                console.error('Update theme preferences error:', error);
-                return new Response(JSON.stringify({
-                    success: false,
-                    message: 'An error occurred while updating theme preferences'
-                }), {
-                    status: 500,
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-        }
-
-        // Handle getThemePreferences action
-        else if (action === 'getThemePreferences') {
-            try {
-                const userId = requestData.userId;
-                const token = requestData.token;
-
-                // Validate input
-                if (!userId || !token) {
-                    return new Response(JSON.stringify({
-                        success: false,
-                        message: 'Missing user ID or token'
-                    }), {
-                        status: 400,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                }
-
-                try {
-                    // Find user by ID and token
-                    const user = await d1.user.findFirst({
-                        where: {
-                            id: parseInt(userId),
-                            token: token
-                        },
-                        select: {
-                            id: true,
-                            theme_preferences: true
-                        }
-                    });
-
-                    // If no user found or token doesn't match
-                    if (!user) {
-                        return new Response(JSON.stringify({
-                            success: false,
-                            message: 'Invalid user ID or token'
-                        }), {
-                            status: 401,
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                    }
-
-                    // Return theme preferences
-                    return new Response(JSON.stringify({
-                        success: true,
-                        themePreferences: user.theme_preferences || {}
-                    }), {
-                        status: 200,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                } catch (dbError) {
-                    console.error('Database operation error:', dbError);
-                    throw dbError; // Re-throw to be caught by the outer catch block
-                }
-            } catch (error) {
-                console.error('Get theme preferences error:', error);
-                return new Response(JSON.stringify({
-                    success: false,
-                    message: 'An error occurred while fetching theme preferences'
-                }), {
-                    status: 500,
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-        }
-
-        // If action is not recognized
-        else {
+        } catch (error) {
+            Sentry.captureException(error);
+            console.error('Login error:', error);
             return new Response(JSON.stringify({
                 success: false,
-                message: 'Invalid action'
+                message: 'An error occurred during login'
             }), {
-                status: 400,
+                status: 500,
                 headers: { 'Content-Type': 'application/json' }
             });
         }
-    })();
+    }
+
+    // Handle getUserData action
+    else if (action === 'getUserData') {
+        try {
+            const userId = requestData.userId;
+            const token = requestData.token;
+
+            // Validate input
+            if (!userId || !token) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Missing user ID or token'
+                }), {
+                    status: 400,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            try {
+                // Check if user exists and token is valid
+                const userData = await prisma.user.findFirst({
+                    where: {
+                        id: parseInt(userId),
+                        token: token
+                    },
+                    select: {
+                        id: true,
+                        username: true,
+                        email: true,
+                        role: true
+                    }
+                });
+
+                // If no user found or token doesn't match
+                if (!userData) {
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid user ID or token'
+                    }), {
+                        status: 401,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+
+                // Return user data (excluding sensitive information)
+                return new Response(JSON.stringify({
+                    success: true,
+                    userData: {
+                        id: userData.id,
+                        username: userData.username,
+                        email: userData.email,
+                        role: userData.role
+                    }
+                }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            } catch (dbError) {
+                Sentry.captureException(dbError);
+                console.error('Database operation error:', dbError);
+                throw dbError; // Re-throw to be caught by the outer catch block
+            }
+        } catch (error) {
+            Sentry.captureException(error);
+            console.error('Get user data error:', error);
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'An error occurred while fetching user data'
+            }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    }
+
+    // Handle getAllUsers action (admin/root only)
+    else if (action === 'getAllUsers') {
+        try {
+            const userId = requestData.userId;
+            const token = requestData.token;
+
+            // Validate input
+            if (!userId || !token) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Missing user ID or token'
+                }), {
+                    status: 400,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+
+            // First check if the requesting user is admin or root
+            const authUser = await prisma.user.findFirst({
+                where: {
+                    id: parseInt(userId),
+                    token: token
+                },
+                select: {
+                    role: true
+                }
+            });
+
+            // If no user found or token doesn't match
+            if (!authUser) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Invalid user ID or token'
+                }), {
+                    status: 401,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            const userRole = authUser.role;
+
+            // Check if user has admin or root role
+            if (userRole !== 'admin' && userRole !== 'root') {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Unauthorized. Admin or root role required.'
+                }), {
+                    status: 403,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            // Get all users (excluding the requesting user)
+            const users = await prisma.user.findMany({
+                where: {
+                    id: {
+                        not: parseInt(userId)
+                    }
+                },
+                select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                    role: true,
+                    created_at: true
+                },
+                orderBy: {
+                    created_at: 'desc'
+                }
+            });
+
+            // Return users data (excluding sensitive information)
+            return new Response(JSON.stringify({
+                success: true,
+                users: users
+            }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        } catch (error) {
+            Sentry.captureException(error);
+            console.error('Get all users error:', error);
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'An error occurred while fetching users'
+            }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    }
+
+    // Handle updateUserRole action (admin/root only)
+    else if (action === 'updateUserRole') {
+        try {
+            const userId = requestData.userId;
+            const token = requestData.token;
+            const targetUserId = requestData.targetUserId;
+            const newRole = requestData.newRole;
+
+            // Validate input
+            if (!userId || !token || !targetUserId || !newRole) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Missing required parameters'
+                }), {
+                    status: 400,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            // Validate role
+            const validRoles = ['user', 'admin', 'unverified'];
+            if (!validRoles.includes(newRole)) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Invalid role'
+                }), {
+                    status: 400,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            // First check if the requesting user is admin or root
+            const authUser = await prisma.user.findFirst({
+                where: {
+                    id: parseInt(userId),
+                    token: token
+                },
+                select: {
+                    role: true
+                }
+            });
+
+            // If no user found or token doesn't match
+            if (!authUser) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Invalid user ID or token'
+                }), {
+                    status: 401,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            const userRole = authUser.role;
+
+            // Check if user has admin or root role
+            if (userRole !== 'admin' && userRole !== 'root') {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Unauthorized. Admin or root role required.'
+                }), {
+                    status: 403,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            // Check if target user exists and get their current role
+            const targetUser = await prisma.user.findUnique({
+                where: {
+                    id: parseInt(targetUserId)
+                },
+                select: {
+                    role: true
+                }
+            });
+
+            if (!targetUser) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Target user not found'
+                }), {
+                    status: 404,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            const targetUserRole = targetUser.role;
+
+            // Root users can only be modified by other root users
+            if (targetUserRole === 'root' && userRole !== 'root') {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Cannot modify a root user'
+                }), {
+                    status: 403,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            // Update the user's role
+            await prisma.user.update({
+                where: {
+                    id: parseInt(targetUserId)
+                },
+                data: {
+                    role: newRole
+                }
+            });
+
+            return new Response(JSON.stringify({
+                success: true,
+                message: 'User role updated successfully'
+            }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        } catch (error) {
+            Sentry.captureException(error);
+            console.error('Update user role error:', error);
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'An error occurred while updating user role'
+            }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    }
+
+    // Handle deleteUser action (admin/root only)
+    else if (action === 'deleteUser') {
+        try {
+            const userId = requestData.userId;
+            const token = requestData.token;
+            const targetUserId = requestData.targetUserId;
+
+            // Validate input
+            if (!userId || !token || !targetUserId) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Missing required parameters'
+                }), {
+                    status: 400,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            try {
+                // First check if the requesting user is admin or root
+                const authUser = await prisma.user.findFirst({
+                    where: {
+                        id: parseInt(userId),
+                        token: token
+                    },
+                    select: {
+                        role: true
+                    }
+                });
+
+                // If no user found or token doesn't match
+                if (!authUser) {
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid user ID or token'
+                    }), {
+                        status: 401,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+
+                const userRole = authUser.role;
+
+                // Check if user has admin or root role
+                if (userRole !== 'admin' && userRole !== 'root') {
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Unauthorized. Admin or root role required.'
+                    }), {
+                        status: 403,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+
+                // Check if target user exists and get their role
+                const targetUser = await prisma.user.findUnique({
+                    where: {
+                        id: parseInt(targetUserId)
+                    },
+                    select: {
+                        role: true
+                    }
+                });
+
+                if (!targetUser) {
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Target user not found'
+                    }), {
+                        status: 404,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+
+                const targetUserRole = targetUser.role;
+
+                // Root users can only be deleted by other root users
+                if (targetUserRole === 'root' && userRole !== 'root') {
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Cannot delete a root user'
+                    }), {
+                        status: 403,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+
+                // Delete the user
+                await prisma.user.delete({
+                    where: {
+                        id: parseInt(targetUserId)
+                    }
+                });
+
+                return new Response(JSON.stringify({
+                    success: true,
+                    message: 'User deleted successfully'
+                }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            } catch (dbError) {
+                Sentry.captureException(dbError);
+                console.error('Database operation error:', dbError);
+                throw dbError; // Re-throw to be caught by the outer catch block
+            }
+        } catch (error) {
+            Sentry.captureException(error);
+            console.error('Delete user error:', error);
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'An error occurred while deleting user'
+            }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    }
+
+    // Handle updateUserField action
+    else if (action === 'updateUserField') {
+        try {
+            const userId = requestData.userId;
+            const token = requestData.token;
+            const field = requestData.field;
+            const value = requestData.value;
+            const currentPassword = requestData.currentPassword;
+
+            // Validate input
+            if (!userId || !token || !field || value === undefined) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Missing required parameters'
+                }), {
+                    status: 400,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            // First check if user exists and token is valid
+            const user = await prisma.user.findFirst({
+                where: {
+                    id: parseInt(userId),
+                    token: token
+                },
+                select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                    password: true,
+                    role: true
+                }
+            });
+
+            // If no user found or token doesn't match
+            if (!user) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Invalid user ID or token'
+                }), {
+                    status: 401,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            // Handle different fields
+            switch (field) {
+                case 'username':
+                    // Check if username is already taken
+                { const existingUser = await prisma.user.findFirst({
+                    where: {
+                        username: value,
+                        id: {
+                            not: parseInt(userId)
+                        }
+                    }
+                });
+
+                    if (existingUser) {
+                        return new Response(JSON.stringify({
+                            success: false,
+                            message: 'Username is already taken'
+                        }), {
+                            status: 409,
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                    }
+
+                    // Update username
+                    await prisma.user.update({
+                        where: { id: parseInt(userId) },
+                        data: { username: value }
+                    });
+                    break; }
+
+                case 'email':
+                    // Check if email is already taken
+                { const existingUser = await prisma.user.findFirst({
+                    where: {
+                        email: value,
+                        id: {
+                            not: parseInt(userId)
+                        }
+                    }
+                });
+
+                    if (existingUser) {
+                        return new Response(JSON.stringify({
+                            success: false,
+                            message: 'Email is already taken'
+                        }), {
+                            status: 409,
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                    }
+
+                    // Update email and set role to unverified
+                    await prisma.user.update({
+                        where: { id: parseInt(userId) },
+                        data: {
+                            email: value,
+                            role: 'unverified'
+                        }
+                    });
+                    break; }
+
+                case 'password':
+                    // Verify current password
+                { if (!currentPassword) {
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Current password is required'
+                    }), {
+                        status: 400,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+
+                    const passwordMatch = await bcrypt.compare(currentPassword, user.password);
+                    if (!passwordMatch) {
+                        return new Response(JSON.stringify({
+                            success: false,
+                            message: 'Current password is incorrect'
+                        }), {
+                            status: 401,
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                    }
+
+                    // Hash the new password
+                    const saltRounds = 10;
+                    const password_hashed = await bcrypt.hash(value, saltRounds);
+
+                    // Update password
+                    await prisma.user.update({
+                        where: { id: parseInt(userId) },
+                        data: { password: password_hashed }
+                    });
+                    break; }
+
+                case 'theme':
+                    // Update theme preference
+                    try {
+                        // Get current theme preferences
+                        const userData = await prisma.user.findUnique({
+                            where: { id: parseInt(userId) },
+                            select: { theme_preferences: true }
+                        });
+
+                        // Create updated theme preferences
+                        const currentPreferences = userData?.theme_preferences || {};
+                        const updatedPreferences = {
+                            ...currentPreferences,
+                            theme: value
+                        };
+
+                        // Update theme preference
+                        await prisma.user.update({
+                            where: { id: parseInt(userId) },
+                            data: { theme_preferences: updatedPreferences }
+                        });
+
+                        // Award the "Master of the Dark Arts" achievement if dark mode is enabled
+                        if (value === 'dark') {
+                            try {
+                                await awardAchievement(parseInt(userId), 'MASTER_OF_DARK_ARTS');
+                            } catch (achievementError) {
+                                Sentry.captureException(achievementError);
+                                console.error('Error awarding achievement:', achievementError);
+                                // Continue even if awarding achievement fails
+                            }
+                        }
+                    } catch (err) {
+                        Sentry.captureException(err);
+                        console.error('Error updating theme preference:', err);
+                        // If there's an error with the theme column, just continue
+                        // This is not critical functionality
+                    }
+                    break;
+
+                default:
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid field'
+                    }), {
+                        status: 400,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+            }
+
+            return new Response(JSON.stringify({
+                success: true,
+                message: `${field} updated successfully`
+            }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        } catch (error) {
+            Sentry.captureException(error);
+            console.error('Update user field error:', error);
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'An error occurred while updating user field'
+            }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    }
+
+    // Handle sendVerificationEmail action
+    else if (action === 'sendVerificationEmail') {
+        try {
+            const userId = requestData.userId;
+            const token = requestData.token;
+
+            // Validate input
+            if (!userId || !token) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Missing required parameters'
+                }), {
+                    status: 400,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            try {
+                // Check if user exists and token is valid
+                const user = await prisma.user.findFirst({
+                    where: {
+                        id: parseInt(userId),
+                        token: token
+                    },
+                    select: {
+                        id: true,
+                        username: true,
+                        email: true,
+                        role: true
+                    }
+                });
+
+                // If no user found or token doesn't match
+                if (!user) {
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid user ID or token'
+                    }), {
+                        status: 401,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+
+                // Check if user is already verified
+                if (user.role !== 'unverified') {
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Email is already verified'
+                    }), {
+                        status: 400,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+
+                // Generate a verification token
+                const verificationToken = crypto.randomBytes(32).toString('hex');
+
+                // Add verification token with expiration (24 hours from now)
+                const expiresAt = new Date();
+                expiresAt.setHours(expiresAt.getHours() + 24);
+
+                // Create the verification token data
+                const verificationTokenData = {
+                    token: verificationToken,
+                    expires_at: expiresAt.toISOString()
+                };
+
+                // Update the user with the verification token
+                await prisma.user.update({
+                    where: {
+                        id: parseInt(userId)
+                    },
+                    data: {
+                        verification_tokens: {
+                            email_verification: verificationTokenData
+                        }
+                    }
+                });
+
+                // Construct the verification link
+                // Use the request URL to determine the base URL
+                const baseUrl = new URL(request.url).origin;
+                const verificationLink = `${baseUrl}/verify-email?token=${verificationToken}`;
+
+                // Initialize SendGrid with API key
+                sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+                // Compose email
+                const msg = {
+                    to: user.email,
+                    from: process.env.SENDGRID_FROM_EMAIL, // Verified sender email in SendGrid
+                    subject: 'Verify Your Email Address',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2>Email Verification</h2>
+                            <p>Hello ${user.username},</p>
+                            <p>Thank you for registering. Please verify your email address by clicking the button below:</p>
+                            <div style="text-align: center; margin: 30px 0;">
+                                <a href="${verificationLink}" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">Verify Email</a>
+                            </div>
+                            <p>If the button doesn't work, you can also copy and paste the following link into your browser:</p>
+                            <p>${verificationLink}</p>
+                            <p>This link will expire in 24 hours.</p>
+                            <p>If you didn't request this verification, please ignore this email.</p>
+                        </div>
+                    `
+                };
+
+                try {
+                    // Send email
+                    await sgMail.send(msg);
+
+                    return new Response(JSON.stringify({
+                        success: true,
+                        message: 'Verification email sent successfully'
+                    }), {
+                        status: 200,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                } catch (emailError) {
+                    Sentry.captureException(emailError);
+                    console.error('Error sending verification email with SendGrid:', emailError);
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Failed to send verification email',
+                        error: emailError.message
+                    }), {
+                        status: 500,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+            } catch (dbError) {
+                Sentry.captureException(dbError);
+                console.error('Database operation error:', dbError);
+                throw dbError; // Re-throw to be caught by the outer catch block
+            }
+        } catch (error) {
+            Sentry.captureException(error);
+            console.error('Send verification email error:', error);
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'An error occurred while sending verification email'
+            }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    }
+
+    // Handle forgotPassword action
+    else if (action === 'forgotPassword') {
+        try {
+            const email = requestData.email;
+
+            // Validate input
+            if (!email) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Email is required'
+                }), {
+                    status: 400,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            try {
+                // Check if user exists with this email
+                const user = await prisma.user.findUnique({
+                    where: {
+                        email: email
+                    },
+                    select: {
+                        id: true,
+                        username: true,
+                        email: true,
+                        verification_tokens: true
+                    }
+                });
+
+                // If no user found with this email
+                if (!user) {
+                    // For security reasons, don't reveal that the email doesn't exist
+                    return new Response(JSON.stringify({
+                        success: true,
+                        message: 'If your email is registered, you will receive password reset instructions'
+                    }), {
+                        status: 200,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+
+                // Generate a password reset token
+                const resetToken = crypto.randomBytes(32).toString('hex');
+
+                // Add reset token with expiration (1 hour from now)
+                const expiresAt = new Date();
+                expiresAt.setHours(expiresAt.getHours() + 1);
+
+                // Create the reset token data
+                const resetTokenData = {
+                    token: resetToken,
+                    expires_at: expiresAt.toISOString()
+                };
+
+                // Get current verification tokens or initialize empty object
+                const verificationTokens = user.verification_tokens || {};
+
+                // Update the user with the reset token
+                await prisma.user.update({
+                    where: {
+                        id: user.id
+                    },
+                    data: {
+                        verification_tokens: {
+                            ...verificationTokens,
+                            password_reset: resetTokenData
+                        }
+                    }
+                });
+
+                // Construct the reset password link
+                const baseUrl = new URL(request.url).origin;
+                const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
+
+                // Initialize SendGrid with API key
+                sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+                // Compose email
+                const msg = {
+                    to: user.email,
+                    from: process.env.SENDGRID_FROM_EMAIL,
+                    subject: 'Reset Your Password',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2>Password Reset</h2>
+                            <p>Hello ${user.username},</p>
+                            <p>We received a request to reset your password. Click the button below to create a new password:</p>
+                            <div style="text-align: center; margin: 30px 0;">
+                                <a href="${resetLink}" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">Reset Password</a>
+                            </div>
+                            <p>If the button doesn't work, you can also copy and paste the following link into your browser:</p>
+                            <p>${resetLink}</p>
+                            <p>This link will expire in 1 hour.</p>
+                            <p>If you didn't request a password reset, please ignore this email or contact support if you have concerns.</p>
+                        </div>
+                    `
+                };
+
+                try {
+                    // Send email
+                    await sgMail.send(msg);
+
+                    return new Response(JSON.stringify({
+                        success: true,
+                        message: 'Password reset instructions sent to your email'
+                    }), {
+                        status: 200,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                } catch (emailError) {
+                    Sentry.captureException(emailError);
+                    console.error('Error sending password reset email with SendGrid:', emailError);
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Failed to send password reset email',
+                        error: emailError.message
+                    }), {
+                        status: 500,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+            } catch (dbError) {
+                Sentry.captureException(dbError);
+                console.error('Database operation error:', dbError);
+                throw dbError; // Re-throw to be caught by the outer catch block
+            }
+        } catch (error) {
+            Sentry.captureException(error);
+            console.error('Forgot password error:', error);
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'An error occurred while processing your request'
+            }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    }
+
+    // Handle verifyDeviceCode action
+    else if (action === 'verifyDeviceCode') {
+        try {
+            const userId = requestData.userId;
+            const token = requestData.token;
+            const authCode = requestData.authCode;
+
+            // Validate input
+            if (!userId || !token || !authCode) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Missing required parameters'
+                }), {
+                    status: 400,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            try {
+                // Check if user exists and token is valid
+                const user = await prisma.user.findFirst({
+                    where: {
+                        id: parseInt(userId),
+                        token: token
+                    },
+                    select: {
+                        id: true,
+                        verification_tokens: true,
+                        device_history: true
+                    }
+                });
+
+                // If no user found or token doesn't match
+                if (!user) {
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid user ID or token'
+                    }), {
+                        status: 401,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+
+                const verificationTokens = user.verification_tokens || {};
+
+                // Check if device verification exists
+                if (!verificationTokens.device_verification) {
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'No device verification in progress'
+                    }), {
+                        status: 400,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+
+                const deviceVerification = verificationTokens.device_verification;
+
+                // Check if code matches
+                if (deviceVerification.code !== authCode) {
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid verification code'
+                    }), {
+                        status: 400,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+
+                // Check if code is expired
+                const expiresAt = new Date(deviceVerification.expires_at);
+                if (expiresAt < new Date()) {
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Verification code has expired'
+                    }), {
+                        status: 400,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+
+                // Code is valid, add device to history
+                const deviceInfo = {
+                    id: deviceVerification.device_id,
+                    user_agent: deviceVerification.user_agent,
+                    last_used: new Date().toISOString()
+                };
+
+                // Get current device history
+                const deviceHistory = user.device_history || [];
+
+                // Update device history
+                let updatedDeviceHistory;
+                if (Array.isArray(deviceHistory)) {
+                    // Remove this device if it exists
+                    const updatedHistory = deviceHistory.filter(device => device.id !== deviceInfo.id);
+                    // Add updated device info
+                    updatedHistory.push(deviceInfo);
+                    // Keep only the last 5 devices
+                    updatedDeviceHistory = updatedHistory.slice(-5);
+                } else {
+                    // Initialize device history
+                    updatedDeviceHistory = [deviceInfo];
+                }
+
+                // Create a copy of verification tokens without device_verification
+                const updatedVerificationTokens = { ...verificationTokens };
+                delete updatedVerificationTokens.device_verification;
+
+                // Update the user with the new device history and remove verification token
+                await prisma.user.update({
+                    where: {
+                        id: parseInt(userId)
+                    },
+                    data: {
+                        device_history: updatedDeviceHistory,
+                        verification_tokens: updatedVerificationTokens
+                    }
+                });
+
+                return new Response(JSON.stringify({
+                    success: true,
+                    message: 'Device verified successfully',
+                    userId: userId,
+                    token: token
+                }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            } catch (dbError) {
+                Sentry.captureException(dbError);
+                console.error('Database operation error:', dbError);
+                throw dbError; // Re-throw to be caught by the outer catch block
+            }
+        } catch (error) {
+            Sentry.captureException(error);
+            console.error('Device verification error:', error);
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'An error occurred during device verification'
+            }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    }
+
+    // Handle resetPassword action
+    else if (action === 'resetPassword') {
+        try {
+            const resetToken = requestData.resetToken;
+            const newPassword = requestData.newPassword;
+
+            // Validate input
+            if (!resetToken || !newPassword) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Missing required parameters'
+                }), {
+                    status: 400,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            try {
+                // Find all users
+                const users = await prisma.user.findMany({
+                    select: {
+                        id: true,
+                        verification_tokens: true
+                    }
+                });
+
+                // Find the user with the matching reset token
+                let matchedUser = null;
+                let tokenData = null;
+
+                for (const user of users) {
+                    const verificationTokens = user.verification_tokens || {};
+                    const passwordReset = verificationTokens.password_reset;
+
+                    if (passwordReset && passwordReset.token === resetToken) {
+                        matchedUser = user;
+                        tokenData = passwordReset;
+                        break;
+                    }
+                }
+
+                if (!matchedUser) {
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid or expired reset token'
+                    }), {
+                        status: 400,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+
+                // Check if token is expired
+                const expiresAt = new Date(tokenData.expires_at);
+                if (expiresAt < new Date()) {
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Reset token has expired'
+                    }), {
+                        status: 400,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+
+                // Hash the new password
+                const saltRounds = 10;
+                const password_hashed = await bcrypt.hash(newPassword, saltRounds);
+
+                // Create a copy of verification tokens without password_reset
+                const updatedVerificationTokens = { ...matchedUser.verification_tokens };
+                delete updatedVerificationTokens.password_reset;
+
+                // Update user's password and remove the reset token
+                await prisma.user.update({
+                    where: {
+                        id: matchedUser.id
+                    },
+                    data: {
+                        password: password_hashed,
+                        verification_tokens: updatedVerificationTokens
+                    }
+                });
+
+                return new Response(JSON.stringify({
+                    success: true,
+                    message: 'Password has been reset successfully'
+                }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            } catch (dbError) {
+                Sentry.captureException(dbError);
+                console.error('Database operation error:', dbError);
+                throw dbError; // Re-throw to be caught by the outer catch block
+            }
+        } catch (error) {
+            Sentry.captureException(error);
+            console.error('Reset password error:', error);
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'An error occurred while resetting your password'
+            }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    }
+
+    // Handle verifyEmail action
+    else if (action === 'verifyEmail') {
+        try {
+            const verificationToken = requestData.verificationToken;
+
+            // Validate input
+            if (!verificationToken) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Missing verification token'
+                }), {
+                    status: 400,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            try {
+                // Find all users
+                const users = await prisma.user.findMany({
+                    select: {
+                        id: true,
+                        verification_tokens: true
+                    }
+                });
+
+                // Find the user with the matching verification token
+                let matchedUser = null;
+                let tokenData = null;
+
+                for (const user of users) {
+                    const verificationTokens = user.verification_tokens || {};
+                    const emailVerification = verificationTokens.email_verification;
+
+                    if (emailVerification && emailVerification.token === verificationToken) {
+                        matchedUser = user;
+                        tokenData = emailVerification;
+                        break;
+                    }
+                }
+
+                if (!matchedUser) {
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Invalid or expired verification token'
+                    }), {
+                        status: 400,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+
+                // Check if token is expired
+                const expiresAt = new Date(tokenData.expires_at);
+                if (expiresAt < new Date()) {
+                    return new Response(JSON.stringify({
+                        success: false,
+                        message: 'Verification token has expired'
+                    }), {
+                        status: 400,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+
+                // Create a copy of verification tokens without email_verification
+                const updatedVerificationTokens = { ...matchedUser.verification_tokens };
+                delete updatedVerificationTokens.email_verification;
+
+                // Update user role to 'user' and remove the verification token
+                await prisma.user.update({
+                    where: {
+                        id: matchedUser.id
+                    },
+                    data: {
+                        role: 'user',
+                        verification_tokens: updatedVerificationTokens
+                    }
+                });
+
+                // Award the "Verify Your Email" achievement
+                try {
+                    await awardAchievement(matchedUser.id, 'VERIFY_EMAIL');
+                } catch (achievementError) {
+                    Sentry.captureException(achievementError);
+                    console.error('Error awarding achievement:', achievementError);
+                    // Continue even if awarding achievement fails
+                }
+
+                return new Response(JSON.stringify({
+                    success: true,
+                    message: 'Email verified successfully'
+                }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            } catch (dbError) {
+                Sentry.captureException(dbError);
+                console.error('Database operation error:', dbError);
+                throw dbError; // Re-throw to be caught by the outer catch block
+            }
+        } catch (error) {
+            Sentry.captureException(error);
+            console.error('Verify email error:', error);
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'An error occurred while verifying email'
+            }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    }
+
+    // Handle getUserAchievements action
+    else if (action === 'getUserAchievements') {
+        try {
+            const userId = requestData.userId;
+            const token = requestData.token;
+
+            // Validate input
+            if (!userId || !token) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Missing required parameters'
+                }), {
+                    status: 400,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            // First check if user exists and token is valid
+            const user = await prisma.user.findFirst({
+                where: {
+                    id: parseInt(userId),
+                    token: token
+                }
+            });
+
+            // If no user found or token doesn't match
+            if (!user) {
+                return new Response(JSON.stringify({
+                    success: false,
+                    message: 'Invalid user ID or token'
+                }), {
+                    status: 401,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            // Get user achievements
+            const achievements = await prisma.userAchievement.findMany({
+                where: { user_id: parseInt(userId) },
+                include: {
+                    achievement: true,
+                },
+            });
+
+            // Get user easter eggs
+            const easterEggs = await prisma.userEasterEgg.findMany({
+                where: { user_id: parseInt(userId) },
+                include: {
+                    easter_egg: true,
+                },
+            });
+
+            // Get user secret settings
+            const secretSettings = await prisma.userSecretSetting.findMany({
+                where: { user_id: parseInt(userId) },
+                include: {
+                    secret_setting: true,
+                },
+            });
+
+            return new Response(JSON.stringify({
+                success: true,
+                achievements,
+                easterEggs,
+                secretSettings
+            }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        } catch (error) {
+            Sentry.captureException(error);
+            console.error('Get user achievements error:', error);
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'An error occurred while fetching user achievements'
+            }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    }
+
+    return new Response(JSON.stringify({
+        success: false,
+        message: 'Invalid action'
+    }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+    });
 }
