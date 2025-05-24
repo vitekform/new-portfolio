@@ -13,7 +13,7 @@ export async function onRequest(context) {
             if (!userId || !token) {
                 return new Response(JSON.stringify({
                     success: false,
-                    message: 'Authentication required for database setup'
+                    message: 'Authentication required for database setup. RQ Data: ' + requestData
                 }), {
                     status: 401,
                     headers: { 'Content-Type': 'application/json' }
