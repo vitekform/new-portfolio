@@ -6,14 +6,14 @@ export async function onRequest(context) {
     if (action === 'setupDatabase') {
         try {
             // Validate admin authentication (for security)
-            /*const userId = requestData.userId;
+            const userId = requestData.userId;
             const token = requestData.token;
             const forceReset = requestData.forceReset || false;
 
             if (!userId || !token) {
                 return new Response(JSON.stringify({
                     success: false,
-                    message: 'Authentication required for database setup.'
+                    message: 'Authentication required for database setup. RQ Data: ' + requestData
                 }), {
                     status: 401,
                     headers: { 'Content-Type': 'application/json' }
@@ -48,8 +48,7 @@ export async function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 }
-            }*/
-            const forceReset = requestData.forceReset || false;
+            }
 
             // Check if database is properly set up
             const isSetupCorrect = await checkDatabaseSetup(env);
