@@ -313,314 +313,319 @@ export async function deleteAchievement(id) {
   }
 }
 
-export async function POST(request, env) {
-  // Initialize the D1 client with the environment
-  initializeD1Client(env);
+export function onRequest(context) {
+  return (async () => {
+    const request = context.request;
+    const env = context.env;
+    
+    // Initialize the D1 client with the environment
+    initializeD1Client(env);
 
-  // Parse the request body
-  const requestData = await request.json();
-  const action = requestData.action;
+    // Parse the request body
+    const requestData = await request.json();
+    const action = requestData.action;
 
-  if (action === 'getAllAchievements') {
-    try {
-      // Validate user authentication
-      const userId = requestData.userId;
-      const token = requestData.token;
+    if (action === 'getAllAchievements') {
+      try {
+        // Validate user authentication
+        const userId = requestData.userId;
+        const token = requestData.token;
 
-      if (!userId || !token) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          message: 'Authentication required' 
-        }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      // Verify user authentication and check if user is admin or root
-      const user = await prisma.user.findFirst({
-        where: {
-          id: parseInt(userId),
-          token: token
-        },
-        select: {
-          id: true,
-          role: true
+        if (!userId || !token) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            message: 'Authentication required' 
+          }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' }
+          });
         }
-      });
 
-      if (!user) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          message: 'Invalid authentication' 
-        }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
+        // Verify user authentication and check if user is admin or root
+        const user = await prisma.user.findFirst({
+          where: {
+            id: parseInt(userId),
+            token: token
+          },
+          select: {
+            id: true,
+            role: true
+          }
         });
-      }
 
-      // Check if user is admin or root
-      if (user.role !== 'admin' && user.role !== 'root') {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          message: 'Unauthorized. Admin or root access required.' 
-        }), {
-          status: 403,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      // Get all achievements
-      const achievements = await getAllAchievements();
-
-      return new Response(JSON.stringify({ 
-        success: true, 
-        achievements
-      }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } catch (error) {
-      console.error('Get all achievements error:', error);
-      Sentry.captureException(error);
-      return new Response(JSON.stringify({ 
-        success: false, 
-        message: 'An error occurred while fetching achievements' 
-      }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-  } 
-  else if (action === 'createAchievement') {
-    try {
-      // Validate user authentication
-      const userId = requestData.userId;
-      const token = requestData.token;
-      const code = requestData.code;
-      const name = requestData.name;
-      const description = requestData.description;
-
-      if (!userId || !token || !code || !name || !description) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          message: 'Missing required parameters' 
-        }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      // Verify user authentication and check if user is admin or root
-      const user = await prisma.user.findFirst({
-        where: {
-          id: parseInt(userId),
-          token: token
-        },
-        select: {
-          id: true,
-          role: true
+        if (!user) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            message: 'Invalid authentication' 
+          }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' }
+          });
         }
-      });
 
-      if (!user) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          message: 'Invalid authentication' 
-        }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      // Check if user is admin or root
-      if (user.role !== 'admin' && user.role !== 'root') {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          message: 'Unauthorized. Admin or root access required.' 
-        }), {
-          status: 403,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      // Create achievement
-      const achievement = await createAchievement(code, name, description);
-
-      return new Response(JSON.stringify({ 
-        success: true, 
-        message: 'Achievement created successfully',
-        achievement
-      }), {
-        status: 201,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } catch (error) {
-      console.error('Create achievement error:', error);
-      Sentry.captureException(error);
-      return new Response(JSON.stringify({ 
-        success: false, 
-        message: error.message || 'An error occurred while creating achievement' 
-      }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-  }
-  else if (action === 'updateAchievement') {
-    try {
-      // Validate user authentication
-      const userId = requestData.userId;
-      const token = requestData.token;
-      const achievementId = requestData.achievementId;
-      const name = requestData.name;
-      const description = requestData.description;
-
-      if (!userId || !token || !achievementId || !name || !description) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          message: 'Missing required parameters' 
-        }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      // Verify user authentication and check if user is admin or root
-      const user = await prisma.user.findFirst({
-        where: {
-          id: parseInt(userId),
-          token: token
-        },
-        select: {
-          id: true,
-          role: true
+        // Check if user is admin or root
+        if (user.role !== 'admin' && user.role !== 'root') {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            message: 'Unauthorized. Admin or root access required.' 
+          }), {
+            status: 403,
+            headers: { 'Content-Type': 'application/json' }
+          });
         }
-      });
 
-      if (!user) {
+        // Get all achievements
+        const achievements = await getAllAchievements();
+
+        return new Response(JSON.stringify({ 
+          success: true, 
+          achievements
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        console.error('Get all achievements error:', error);
+        Sentry.captureException(error);
         return new Response(JSON.stringify({ 
           success: false, 
-          message: 'Invalid authentication' 
+          message: 'An error occurred while fetching achievements' 
         }), {
-          status: 401,
+          status: 500,
           headers: { 'Content-Type': 'application/json' }
         });
       }
+    } 
+    else if (action === 'createAchievement') {
+      try {
+        // Validate user authentication
+        const userId = requestData.userId;
+        const token = requestData.token;
+        const code = requestData.code;
+        const name = requestData.name;
+        const description = requestData.description;
 
-      // Check if user is admin or root
-      if (user.role !== 'admin' && user.role !== 'root') {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          message: 'Unauthorized. Admin or root access required.' 
-        }), {
-          status: 403,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      // Update achievement
-      const achievement = await updateAchievement(parseInt(achievementId), name, description);
-
-      return new Response(JSON.stringify({ 
-        success: true, 
-        message: 'Achievement updated successfully',
-        achievement
-      }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } catch (error) {
-      console.error('Update achievement error:', error);
-      Sentry.captureException(error);
-      return new Response(JSON.stringify({ 
-        success: false, 
-        message: error.message || 'An error occurred while updating achievement' 
-      }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-  }
-  else if (action === 'deleteAchievement') {
-    try {
-      // Validate user authentication
-      const userId = requestData.userId;
-      const token = requestData.token;
-      const achievementId = requestData.achievementId;
-
-      if (!userId || !token || !achievementId) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          message: 'Missing required parameters' 
-        }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      // Verify user authentication and check if user is admin or root
-      const user = await prisma.user.findFirst({
-        where: {
-          id: parseInt(userId),
-          token: token
-        },
-        select: {
-          id: true,
-          role: true
+        if (!userId || !token || !code || !name || !description) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            message: 'Missing required parameters' 
+          }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+          });
         }
-      });
 
-      if (!user) {
+        // Verify user authentication and check if user is admin or root
+        const user = await prisma.user.findFirst({
+          where: {
+            id: parseInt(userId),
+            token: token
+          },
+          select: {
+            id: true,
+            role: true
+          }
+        });
+
+        if (!user) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            message: 'Invalid authentication' 
+          }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Check if user is admin or root
+        if (user.role !== 'admin' && user.role !== 'root') {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            message: 'Unauthorized. Admin or root access required.' 
+          }), {
+            status: 403,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Create achievement
+        const achievement = await createAchievement(code, name, description);
+
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: 'Achievement created successfully',
+          achievement
+        }), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        console.error('Create achievement error:', error);
+        Sentry.captureException(error);
         return new Response(JSON.stringify({ 
           success: false, 
-          message: 'Invalid authentication' 
+          message: error.message || 'An error occurred while creating achievement' 
         }), {
-          status: 401,
+          status: 500,
           headers: { 'Content-Type': 'application/json' }
         });
       }
-
-      // Check if user is admin or root
-      if (user.role !== 'admin' && user.role !== 'root') {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          message: 'Unauthorized. Admin or root access required.' 
-        }), {
-          status: 403,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      // Delete achievement
-      const achievement = await deleteAchievement(parseInt(achievementId));
-
-      return new Response(JSON.stringify({ 
-        success: true, 
-        message: 'Achievement deleted successfully',
-        achievement
-      }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } catch (error) {
-      console.error('Delete achievement error:', error);
-      Sentry.captureException(error);
-      return new Response(JSON.stringify({ 
-        success: false, 
-        message: error.message || 'An error occurred while deleting achievement' 
-      }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
     }
-  }
+    else if (action === 'updateAchievement') {
+      try {
+        // Validate user authentication
+        const userId = requestData.userId;
+        const token = requestData.token;
+        const achievementId = requestData.achievementId;
+        const name = requestData.name;
+        const description = requestData.description;
 
-  return new Response(JSON.stringify({ 
-    success: false, 
-    message: 'Invalid action' 
-  }), {
-    status: 400,
-    headers: { 'Content-Type': 'application/json' }
-  });
+        if (!userId || !token || !achievementId || !name || !description) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            message: 'Missing required parameters' 
+          }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Verify user authentication and check if user is admin or root
+        const user = await prisma.user.findFirst({
+          where: {
+            id: parseInt(userId),
+            token: token
+          },
+          select: {
+            id: true,
+            role: true
+          }
+        });
+
+        if (!user) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            message: 'Invalid authentication' 
+          }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Check if user is admin or root
+        if (user.role !== 'admin' && user.role !== 'root') {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            message: 'Unauthorized. Admin or root access required.' 
+          }), {
+            status: 403,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Update achievement
+        const achievement = await updateAchievement(parseInt(achievementId), name, description);
+
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: 'Achievement updated successfully',
+          achievement
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        console.error('Update achievement error:', error);
+        Sentry.captureException(error);
+        return new Response(JSON.stringify({ 
+          success: false, 
+          message: error.message || 'An error occurred while updating achievement' 
+        }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    }
+    else if (action === 'deleteAchievement') {
+      try {
+        // Validate user authentication
+        const userId = requestData.userId;
+        const token = requestData.token;
+        const achievementId = requestData.achievementId;
+
+        if (!userId || !token || !achievementId) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            message: 'Missing required parameters' 
+          }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Verify user authentication and check if user is admin or root
+        const user = await prisma.user.findFirst({
+          where: {
+            id: parseInt(userId),
+            token: token
+          },
+          select: {
+            id: true,
+            role: true
+          }
+        });
+
+        if (!user) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            message: 'Invalid authentication' 
+          }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Check if user is admin or root
+        if (user.role !== 'admin' && user.role !== 'root') {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            message: 'Unauthorized. Admin or root access required.' 
+          }), {
+            status: 403,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Delete achievement
+        const achievement = await deleteAchievement(parseInt(achievementId));
+
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: 'Achievement deleted successfully',
+          achievement
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        console.error('Delete achievement error:', error);
+        Sentry.captureException(error);
+        return new Response(JSON.stringify({ 
+          success: false, 
+          message: error.message || 'An error occurred while deleting achievement' 
+        }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    return new Response(JSON.stringify({ 
+      success: false, 
+      message: 'Invalid action' 
+    }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  })();
 }

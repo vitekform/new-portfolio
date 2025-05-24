@@ -1,4 +1,4 @@
-import prisma, { initializeD1Client } from './functions/lib/prisma.js';
+import prisma, { initializeD1Client } from './functions/api/lib/prisma.js';
 
 async function testServices() {
   try {

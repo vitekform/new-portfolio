@@ -1,8 +1,0 @@
-name = "new-portfolio"
-compatibility_date = "2023-12-01"
-
-# D1 Database configuration
-[[d1_databases]]
-binding = "DB" # This will be available in your code as env.DB
-database_name = "portfolio_db"
-database_id = "portfolio_db" # You'll need to replace this with the actual ID after creating the database in Cloudflare

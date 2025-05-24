@@ -19,11 +19,9 @@ This is a portfolio website built with React and Vite, featuring user management
 The following environment variables need to be set for the application to work properly:
 
 ```
-# Database Configuration
-# For Prisma Accelerate:
-DB_DATABASE_URL="prisma+postgres://accelerate.prisma-data.net/?api_key=your_accelerate_api_key"
-# Or for direct PostgreSQL connection:
-# DB_DATABASE_URL="postgres://username:password@host:port/database"
+# Cloudflare D1 Configuration
+# No environment variables needed for D1 as it's configured in wrangler.toml
+# The database binding is automatically available in your Cloudflare Workers
 
 # SendGrid Configuration
 SENDGRID_API_KEY=your-sendgrid-api-key
@@ -65,12 +63,21 @@ yarn build
 - React
 - Vite
 - Node.js
-- PostgreSQL
-- Prisma ORM
-- Prisma Accelerate (for connection pooling and performance)
+- Cloudflare D1 (SQLite-compatible database)
+- Cloudflare Workers (for serverless functions)
 - SendGrid (for email verification)
 - Styled Components
 
-## Database Migration
+## Database Setup
 
-This project has been migrated from direct PostgreSQL queries to Prisma ORM. See [README-PRISMA-MIGRATION.md](README-PRISMA-MIGRATION.md) for details on the migration process and additional setup steps.
+This project uses Cloudflare D1, a serverless SQL database that's compatible with SQLite. The database schema is defined in `schema.sql` and can be deployed using Wrangler CLI:
+
+```bash
+# Initialize a new D1 database (only needed once)
+yarn d1:init
+
+# Apply the schema to the D1 database
+yarn d1:migrate
+```
+
+The database is automatically connected in your Cloudflare Workers through the D1 binding configured in `wrangler.toml`.
