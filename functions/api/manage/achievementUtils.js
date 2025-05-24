@@ -4,10 +4,11 @@ import getD1Client, { initializeD1Client } from '../lib/d1.js';
  * Award an achievement to a user
  * @param {number} userId - The ID of the user
  * @param {string} achievementCode - The code of the achievement to award
+ * @param {Object} [env] - The environment object
  * @returns {Promise<Object>} - The created user achievement
  */
-export async function awardAchievement(userId, achievementCode) {
-  const d1 = getD1Client();
+export async function awardAchievement(userId, achievementCode, env) {
+  const d1 = getD1Client(env);
   try {
     // Check if the user already has this achievement
     const achievement = await d1.achievement.findUnique({ where: { code: achievementCode } });
@@ -59,10 +60,11 @@ export async function awardAchievement(userId, achievementCode) {
  * Unlock an easter egg for a user
  * @param {number} userId - The ID of the user
  * @param {string} easterEggCode - The code of the easter egg to unlock
+ * @param {Object} [env] - The environment object
  * @returns {Promise<Object>} - The created user easter egg
  */
-export async function unlockEasterEgg(userId, easterEggCode) {
-  const d1 = getD1Client();
+export async function unlockEasterEgg(userId, easterEggCode, env) {
+  const d1 = getD1Client(env);
   try {
     const easterEgg = await d1.easterEgg.findUnique({ where: { code: easterEggCode } });
     if (!easterEgg) throw new Error(`Easter egg with code ${easterEggCode} not found`);
@@ -112,10 +114,11 @@ export async function unlockEasterEgg(userId, easterEggCode) {
 /**
  * Get all achievements for a user
  * @param {number} userId - The ID of the user
+ * @param {Object} [env] - The environment object
  * @returns {Promise<Array>} - The user's achievements
  */
-export async function getUserAchievements(userId) {
-  const d1 = getD1Client();
+export async function getUserAchievements(userId, env) {
+  const d1 = getD1Client(env);
   try {
     const userAchievements = await d1.userAchievement.findMany({
       where: { user_id: userId }
@@ -130,10 +133,11 @@ export async function getUserAchievements(userId) {
 /**
  * Get all easter eggs for a user
  * @param {number} userId - The ID of the user
+ * @param {Object} [env] - The environment object
  * @returns {Promise<Array>} - The user's easter eggs
  */
-export async function getUserEasterEggs(userId) {
-  const d1 = getD1Client();
+export async function getUserEasterEggs(userId, env) {
+  const d1 = getD1Client(env);
   try {
     const userEasterEggs = await d1.userEasterEgg.findMany({
       where: { user_id: userId }
@@ -148,10 +152,11 @@ export async function getUserEasterEggs(userId) {
 /**
  * Get all secret settings for a user
  * @param {number} userId - The ID of the user
+ * @param {Object} [env] - The environment object
  * @returns {Promise<Array>} - The user's secret settings
  */
-export async function getUserSecretSettings(userId) {
-  const d1 = getD1Client();
+export async function getUserSecretSettings(userId, env) {
+  const d1 = getD1Client(env);
   try {
     const userSecretSettings = await d1.userSecretSetting.findMany({
       where: { user_id: userId }
@@ -165,10 +170,11 @@ export async function getUserSecretSettings(userId) {
 
 /**
  * Get all achievements
+ * @param {Object} [env] - The environment object
  * @returns {Promise<Array>} - All achievements
  */
-export async function getAllAchievements() {
-  const d1 = getD1Client();
+export async function getAllAchievements(env) {
+  const d1 = getD1Client(env);
   try {
     const achievements = await d1.achievement.findMany();
     return achievements;
@@ -183,10 +189,11 @@ export async function getAllAchievements() {
  * @param {string} code - The code of the achievement
  * @param {string} name - The name of the achievement
  * @param {string} description - The description of the achievement
+ * @param {Object} [env] - The environment object
  * @returns {Promise<Object>} - The created achievement
  */
-export async function createAchievement(code, name, description) {
-  const d1 = getD1Client();
+export async function createAchievement(code, name, description, env) {
+  const d1 = getD1Client(env);
   try {
     // Check if achievement with this code already exists
     const existingAchievement = await d1.achievement.findUnique({
@@ -217,10 +224,11 @@ export async function createAchievement(code, name, description) {
  * @param {number} id - The ID of the achievement to update
  * @param {string} name - The new name of the achievement
  * @param {string} description - The new description of the achievement
+ * @param {Object} [env] - The environment object
  * @returns {Promise<Object>} - The updated achievement
  */
-export async function updateAchievement(id, name, description) {
-  const d1 = getD1Client();
+export async function updateAchievement(id, name, description, env) {
+  const d1 = getD1Client(env);
   try {
     const achievement = await d1.achievement.update({
       where: { id },
@@ -240,10 +248,11 @@ export async function updateAchievement(id, name, description) {
 /**
  * Delete an achievement
  * @param {number} id - The ID of the achievement to delete
+ * @param {Object} [env] - The environment object
  * @returns {Promise<Object>} - The deleted achievement
  */
-export async function deleteAchievement(id) {
-  const d1 = getD1Client();
+export async function deleteAchievement(id, env) {
+  const d1 = getD1Client(env);
   try {
     // Check if achievement is being used by any users
     const userAchievements = await d1.userAchievement.findMany({
@@ -333,7 +342,7 @@ export function onRequest(context) {
         }
 
         // Get all achievements
-        const achievements = await getAllAchievements();
+        const achievements = await getAllAchievements(env);
 
         return new Response(JSON.stringify({ 
           success: true, 
@@ -402,7 +411,7 @@ export function onRequest(context) {
         }
 
         // Create achievement
-        const achievement = await createAchievement(code, name, description);
+        const achievement = await createAchievement(code, name, description, env);
 
         return new Response(JSON.stringify({ 
           success: true, 
@@ -472,7 +481,7 @@ export function onRequest(context) {
         }
 
         // Update achievement
-        const achievement = await updateAchievement(parseInt(achievementId), name, description);
+        const achievement = await updateAchievement(parseInt(achievementId), name, description, env);
 
         return new Response(JSON.stringify({ 
           success: true, 
@@ -540,7 +549,7 @@ export function onRequest(context) {
         }
 
         // Delete achievement
-        const achievement = await deleteAchievement(parseInt(achievementId));
+        const achievement = await deleteAchievement(parseInt(achievementId), env);
 
         return new Response(JSON.stringify({ 
           success: true, 

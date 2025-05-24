@@ -1,4 +1,4 @@
-import { initializeD1Client } from '../lib/d1.js';
+import getD1Client, { initializeD1Client } from '../lib/d1.js';
 
 export function onRequest(context) {
     return (async () => {
@@ -7,6 +7,7 @@ export function onRequest(context) {
 
         // Initialize the D1 client with the environment
         initializeD1Client(env);
+        const d1 = getD1Client(env);
 
         // Parse the request body
         const requestData = await request.json();
@@ -18,8 +19,7 @@ export function onRequest(context) {
                 const dbStartTime = performance.now();
 
                 // Simple query to test database connection using D1
-                const d1Client = initializeD1Client(env);
-                await d1Client.db.prepare('SELECT 1').first();
+                await d1.db.prepare('SELECT 1').first();
 
                 const dbEndTime = performance.now();
                 const dbLatency = Math.round(dbEndTime - dbStartTime);

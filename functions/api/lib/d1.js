@@ -288,17 +288,22 @@ export class D1Client {
 let d1Client = null;
 
 export function getD1Client(env) {
-  if (!d1Client && env && env.DB) {
+  // Always require env and env.DB for initialization
+  if (!d1Client) {
+    if (!env || !env.DB) {
+      throw new Error('D1Client not initialized: env.DB is required');
+    }
     d1Client = new D1Client(env.DB);
   }
   return d1Client;
 }
 
-// Add this for compatibility with previous initializeD1Client usage
 export function initializeD1Client(env) {
-  // Optionally re-initialize d1Client if needed
-  // For now, just call getD1Client to ensure it's set
-  getD1Client(env);
+  // Always re-initialize if env is provided
+  if (!env || !env.DB) {
+    throw new Error('D1Client initialization failed: env.DB is required');
+  }
+  d1Client = new D1Client(env.DB);
 }
 
 export default getD1Client;

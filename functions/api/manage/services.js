@@ -50,7 +50,7 @@ export function onRequest(context) {
         const request = context.request;
         const env = context.env;
 
-        // Initialize the D1 client with the environment
+        // Always initialize and get D1 client with env
         initializeD1Client(env);
         const d1 = getD1Client(env);
 
