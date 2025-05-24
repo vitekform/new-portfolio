@@ -1,4 +1,4 @@
-import { initializeD1Client } from '../lib/prisma.js';
+import { initializeD1Client } from '../lib/d1.js';
 
 export function onRequest(context) {
     return (async () => {
