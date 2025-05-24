@@ -1,5 +1,5 @@
-export async function POST(request, env) {
-    // Parse the request body
+export async function onRequest(context) {
+    const { request, env } = context;
     const requestData = await request.json();
     const action = requestData.action;
 
