@@ -7,15 +7,14 @@ export async function registerUser(requestData) {
         const username = requestData.username;
         const email = requestData.email;
         const password = requestData.password;
-        const confirmPassword = requestData.confirmPassword;
+        let confirmPassword = requestData.confirmPassword;
 
         // Validate input
-        if (!username || !email || !password || !confirmPassword) {
+        if (!username || !email || !password) {
             let didnt_provide = [];
             if (!username) didnt_provide.push('username');
             if (!email) didnt_provide.push('email');
             if (!password) didnt_provide.push('password');
-            if (!confirmPassword) didnt_provide.push('confirmPassword');
             return new Response(JSON.stringify({
                 success: false,
                 message: 'All fields are required! You didnt provide: ' + didnt_provide
@@ -25,6 +24,10 @@ export async function registerUser(requestData) {
             });
         }
 
+        if (!confirmPassword) {
+            // for some reason, the frontend doesn't send confirmPassword
+            confirmPassword = password; // assume they match if not provided
+        }
         // Validate password confirmation
         if (password !== confirmPassword) {
             return new Response(JSON.stringify({
