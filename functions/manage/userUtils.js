@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import sgMail from '@sendgrid/mail';
 import prisma from '../lib/prisma.js';
 import * as Sentry from '@sentry/node';
+import { awardAchievement } from './achievementUtils.js';
 
 Sentry.init({
     dsn: "https://342a3da4b820d22a01431d0c0201a770@o4508938006626304.ingest.de.sentry.io/4509362550734928",
@@ -88,6 +89,15 @@ export async function POST(request) {
 
                 // Get the new user's ID
                 const newUserId = newUser.id;
+
+                // Award the "Big Mistake" achievement
+                try {
+                    await awardAchievement(newUserId, 'BIG_MISTAKE');
+                } catch (achievementError) {
+                    Sentry.captureException(achievementError);
+                    console.error('Error awarding achievement:', achievementError);
+                    // Continue with registration even if awarding achievement fails
+                }
 
                 // Send welcome email
                 try {
@@ -941,6 +951,17 @@ export async function POST(request) {
                                 where: { id: parseInt(userId) },
                                 data: { theme_preferences: updatedPreferences }
                             });
+
+                            // Award the "Master of the Dark Arts" achievement if dark mode is enabled
+                            if (value === 'dark') {
+                                try {
+                                    await awardAchievement(parseInt(userId), 'MASTER_OF_DARK_ARTS');
+                                } catch (achievementError) {
+                                    Sentry.captureException(achievementError);
+                                    console.error('Error awarding achievement:', achievementError);
+                                    // Continue even if awarding achievement fails
+                                }
+                            }
                         } catch (err) {
                             Sentry.captureException(err);
                             console.error('Error updating theme preference:', err);
@@ -1599,6 +1620,15 @@ export async function POST(request) {
                     }
                 });
 
+                // Award the "Verify Your Email" achievement
+                try {
+                    await awardAchievement(matchedUser.id, 'VERIFY_EMAIL');
+                } catch (achievementError) {
+                    Sentry.captureException(achievementError);
+                    console.error('Error awarding achievement:', achievementError);
+                    // Continue even if awarding achievement fails
+                }
+
                 return new Response(JSON.stringify({ 
                     success: true, 
                     message: 'Email verified successfully'
@@ -1617,6 +1647,88 @@ export async function POST(request) {
             return new Response(JSON.stringify({ 
                 success: false, 
                 message: 'An error occurred while verifying email' 
+            }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    }
+
+    // Handle getUserAchievements action
+    else if (action === 'getUserAchievements') {
+        try {
+            const userId = requestData.userId;
+            const token = requestData.token;
+
+            // Validate input
+            if (!userId || !token) {
+                return new Response(JSON.stringify({ 
+                    success: false, 
+                    message: 'Missing required parameters' 
+                }), {
+                    status: 400,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            // First check if user exists and token is valid
+            const user = await prisma.user.findFirst({
+                where: {
+                    id: parseInt(userId),
+                    token: token
+                }
+            });
+
+            // If no user found or token doesn't match
+            if (!user) {
+                return new Response(JSON.stringify({ 
+                    success: false, 
+                    message: 'Invalid user ID or token' 
+                }), {
+                    status: 401,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+
+            // Get user achievements
+            const achievements = await prisma.userAchievement.findMany({
+                where: { user_id: parseInt(userId) },
+                include: {
+                    achievement: true,
+                },
+            });
+
+            // Get user easter eggs
+            const easterEggs = await prisma.userEasterEgg.findMany({
+                where: { user_id: parseInt(userId) },
+                include: {
+                    easter_egg: true,
+                },
+            });
+
+            // Get user secret settings
+            const secretSettings = await prisma.userSecretSetting.findMany({
+                where: { user_id: parseInt(userId) },
+                include: {
+                    secret_setting: true,
+                },
+            });
+
+            return new Response(JSON.stringify({ 
+                success: true, 
+                achievements,
+                easterEggs,
+                secretSettings
+            }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        } catch (error) {
+            Sentry.captureException(error);
+            console.error('Get user achievements error:', error);
+            return new Response(JSON.stringify({ 
+                success: false, 
+                message: 'An error occurred while fetching user achievements' 
             }), {
                 status: 500,
                 headers: { 'Content-Type': 'application/json' }

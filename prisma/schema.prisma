@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DB_DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -23,6 +23,11 @@ model User {
   created_at         DateTime         @default(now())
   updated_at         DateTime         @updatedAt
   service_requests   ServiceRequest[]
+  user_achievements  UserAchievement[]
+  user_easter_eggs   UserEasterEgg[]
+  unlocked_settings  UserSecretSetting[]
+  tickets            Ticket[]         // User can have multiple tickets
+  sent_messages      TicketMessage[]  @relation("SentMessages")
 }
 
 model Service {
@@ -43,4 +48,96 @@ model ServiceRequest {
   status      String    @default("pending")
   created_at  DateTime  @default(now())
   updated_at  DateTime  @updatedAt
+  ticket      Ticket?   // A service request can be converted to a ticket
+}
+
+model Achievement {
+  id                Int               @id @default(autoincrement())
+  code              String            @unique
+  name              String
+  description       String
+  created_at        DateTime          @default(now())
+  user_achievements UserAchievement[]
+  secret_settings   SecretSetting[]
+}
+
+model EasterEgg {
+  id                Int               @id @default(autoincrement())
+  code              String            @unique
+  name              String
+  description       String
+  created_at        DateTime          @default(now())
+  user_easter_eggs  UserEasterEgg[]
+  secret_settings   SecretSetting[]
+}
+
+model SecretSetting {
+  id                Int                  @id @default(autoincrement())
+  code              String               @unique
+  name              String
+  description       String
+  achievement       Achievement?         @relation(fields: [achievement_id], references: [id])
+  achievement_id    Int?
+  easter_egg        EasterEgg?           @relation(fields: [easter_egg_id], references: [id])
+  easter_egg_id     Int?
+  created_at        DateTime             @default(now())
+  user_settings     UserSecretSetting[]
+}
+
+model UserAchievement {
+  id             Int         @id @default(autoincrement())
+  user           User        @relation(fields: [user_id], references: [id])
+  user_id        Int
+  achievement    Achievement @relation(fields: [achievement_id], references: [id])
+  achievement_id Int
+  unlocked_at    DateTime    @default(now())
+
+  @@unique([user_id, achievement_id])
+}
+
+model UserEasterEgg {
+  id            Int       @id @default(autoincrement())
+  user          User      @relation(fields: [user_id], references: [id])
+  user_id       Int
+  easter_egg    EasterEgg @relation(fields: [easter_egg_id], references: [id])
+  easter_egg_id Int
+  unlocked_at   DateTime  @default(now())
+
+  @@unique([user_id, easter_egg_id])
+}
+
+model UserSecretSetting {
+  id               Int           @id @default(autoincrement())
+  user             User          @relation(fields: [user_id], references: [id])
+  user_id          Int
+  secret_setting   SecretSetting @relation(fields: [secret_setting_id], references: [id])
+  secret_setting_id Int
+  unlocked_at      DateTime      @default(now())
+
+  @@unique([user_id, secret_setting_id])
+}
+
+model Ticket {
+  id                Int             @id @default(autoincrement())
+  title             String
+  status            String          @default("open") // open, closed
+  priority          String          @default("medium") // low, medium, high
+  user              User            @relation(fields: [user_id], references: [id])
+  user_id           Int
+  service_request   ServiceRequest? @relation(fields: [service_request_id], references: [id])
+  service_request_id Int?           @unique // One-to-one relationship with ServiceRequest
+  messages          TicketMessage[]
+  created_at        DateTime        @default(now())
+  updated_at        DateTime        @updatedAt
+}
+
+model TicketMessage {
+  id              Int       @id @default(autoincrement())
+  content         String
+  sender          User      @relation("SentMessages", fields: [sender_id], references: [id])
+  sender_id       Int
+  ticket          Ticket    @relation(fields: [ticket_id], references: [id])
+  ticket_id       Int
+  created_at      DateTime  @default(now())
+  is_read         Boolean   @default(false)
 }

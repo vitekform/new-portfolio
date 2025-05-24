@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import styled from 'styled-components';
-import { FaUsers, FaSignOutAlt, FaSpinner, FaChartLine, FaServer, FaCog } from 'react-icons/fa';
+import { FaUsers, FaSignOutAlt, FaSpinner, FaChartLine, FaServer, FaCog, FaTrophy, FaEdit, FaClipboardCheck, FaTicketAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from './common/ThemeToggle';
 import UserManagement from './manage/UserManagement';
 import Status from './manage/Status';
 import Services from './manage/Services';
 import AccountSettings from './manage/AccountSettings';
+import Achievements from './manage/Achievements';
+import AchievementEditor from './manage/AchievementEditor';
+import ServiceRequestReview from './manage/ServiceRequestReview';
+import TicketManagement from './manage/TicketManagement';
 
 function Manage() {
   const [loading, setLoading] = useState(true);
@@ -147,11 +151,48 @@ function Manage() {
               </SidebarItem>
             )}
 
+            {/* Only show Achievement Editor to admin and root users */}
+            {(userData?.role === 'admin' || userData?.role === 'root') && (
+              <SidebarItem 
+                active={activeSection === 'achievement-editor'} 
+                onClick={() => setActiveSection('achievement-editor')}
+              >
+                <FaEdit /> Achievement Editor
+              </SidebarItem>
+            )}
+
+            {/* Only show Service Request Review to admin and root users */}
+            {(userData?.role === 'admin' || userData?.role === 'root') && (
+              <SidebarItem 
+                active={activeSection === 'service-requests'} 
+                onClick={() => setActiveSection('service-requests')}
+              >
+                <FaClipboardCheck /> Service Requests
+              </SidebarItem>
+            )}
+
+            {/* Only show Ticket Management to admin and root users */}
+            {(userData?.role === 'admin' || userData?.role === 'root') && (
+              <SidebarItem 
+                active={activeSection === 'tickets'} 
+                onClick={() => setActiveSection('tickets')}
+              >
+                <FaTicketAlt /> Ticket System
+              </SidebarItem>
+            )}
+
             <SidebarItem 
               active={activeSection === 'account'} 
               onClick={() => setActiveSection('account')}
             >
               <FaCog /> Account Settings
+            </SidebarItem>
+
+            <SidebarItem 
+              active={activeSection === 'achievements'} 
+              onClick={() => setActiveSection('achievements')}
+            >
+              <FaTrophy /> Achievements
             </SidebarItem>
 
             <LogoutButton onClick={handleLogout}>
@@ -190,6 +231,30 @@ function Manage() {
               <AccountSettingsSection>
                 <AccountSettings />
               </AccountSettingsSection>
+            )}
+
+            {activeSection === 'achievements' && (
+              <AchievementsSection>
+                <Achievements />
+              </AchievementsSection>
+            )}
+
+            {activeSection === 'achievement-editor' && (userData?.role === 'admin' || userData?.role === 'root') && (
+              <AchievementEditorSection>
+                <AchievementEditor />
+              </AchievementEditorSection>
+            )}
+
+            {activeSection === 'service-requests' && (userData?.role === 'admin' || userData?.role === 'root') && (
+              <ServiceRequestsSection>
+                <ServiceRequestReview />
+              </ServiceRequestsSection>
+            )}
+
+            {activeSection === 'tickets' && (userData?.role === 'admin' || userData?.role === 'root') && (
+              <TicketsSection>
+                <TicketManagement />
+              </TicketsSection>
             )}
           </ContentArea>
         </DashboardLayout>
@@ -350,6 +415,34 @@ const ServicesSection = styled.section`
 `;
 
 const AccountSettingsSection = styled.section`
+  h2 {
+    margin-top: 0;
+    color: var(--text-primary);
+  }
+`;
+
+const AchievementsSection = styled.section`
+  h2 {
+    margin-top: 0;
+    color: var(--text-primary);
+  }
+`;
+
+const AchievementEditorSection = styled.section`
+  h2 {
+    margin-top: 0;
+    color: var(--text-primary);
+  }
+`;
+
+const ServiceRequestsSection = styled.section`
+  h2 {
+    margin-top: 0;
+    color: var(--text-primary);
+  }
+`;
+
+const TicketsSection = styled.section`
   h2 {
     margin-top: 0;
     color: var(--text-primary);
