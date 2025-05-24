@@ -2,21 +2,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import sgMail from '@sendgrid/mail';
 import prisma, { initializeD1Client } from '../lib/prisma.js';
-import * as Sentry from '@sentry/node';
 import { awardAchievement } from './achievementUtils.js';
-
-Sentry.init({
-    dsn: "https://342a3da4b820d22a01431d0c0201a770@o4508938006626304.ingest.de.sentry.io/4509362550734928",
-
-    // Setting this option to true will send default PII data to Sentry.
-    // For example, automatic IP address collection on events
-    sendDefaultPii: true,
-
-    // Disable HTTP instrumentation to avoid "this.enable is not a function" error
-    integrations: (integrations) => {
-        return integrations.filter(integration => integration.name !== 'Http');
-    }
-});
 
 export function onRequest(context) {
     return (async () => {
@@ -106,7 +92,6 @@ export function onRequest(context) {
                     try {
                         await awardAchievement(newUserId, 'BIG_MISTAKE');
                     } catch (achievementError) {
-                        Sentry.captureException(achievementError);
                         console.error('Error awarding achievement:', achievementError);
                     }
 
@@ -160,7 +145,6 @@ export function onRequest(context) {
                             console.warn('SENDGRID_API_KEY not set, skipping email verification');
                         }
                     } catch (emailError) {
-                        Sentry.captureException(emailError);
                         console.error('Error sending verification email:', emailError);
                         // Continue with registration even if email fails
                     }
@@ -176,7 +160,6 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
             } catch (error) {
-                Sentry.captureException(error);
                 console.error('Registration error:', error);
                 return new Response(JSON.stringify({ 
                     success: false, 
@@ -315,7 +298,6 @@ export function onRequest(context) {
                             });
                         }
                     } catch (deviceError) {
-                        Sentry.captureException(deviceError);
                         console.error('Device tracking error:', deviceError);
                         // Continue with login even if device tracking fails
                     }
@@ -331,12 +313,10 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 } catch (dbError) {
-                    Sentry.captureException(dbError);
                     console.error('Database operation error:', dbError);
                     throw dbError; // Re-throw to be caught by the outer catch block
                 }
             } catch (error) {
-                Sentry.captureException(error);
                 console.error('Login error:', error);
                 return new Response(JSON.stringify({ 
                     success: false, 
@@ -405,12 +385,10 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 } catch (dbError) {
-                    Sentry.captureException(dbError);
                     console.error('Database operation error:', dbError);
                     throw dbError; // Re-throw to be caught by the outer catch block
                 }
             } catch (error) {
-                Sentry.captureException(error);
                 console.error('Get user data error:', error);
                 return new Response(JSON.stringify({ 
                     success: false, 
@@ -507,7 +485,6 @@ export function onRequest(context) {
                     try {
                         await awardAchievement(parseInt(userId), 'VERIFIED');
                     } catch (achievementError) {
-                        Sentry.captureException(achievementError);
                         console.error('Error awarding achievement:', achievementError);
                     }
 
@@ -520,12 +497,10 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 } catch (dbError) {
-                    Sentry.captureException(dbError);
                     console.error('Database operation error:', dbError);
                     throw dbError; // Re-throw to be caught by the outer catch block
                 }
             } catch (error) {
-                Sentry.captureException(error);
                 console.error('Email verification error:', error);
                 return new Response(JSON.stringify({ 
                     success: false, 
@@ -619,7 +594,6 @@ export function onRequest(context) {
                             console.warn('SENDGRID_API_KEY not set, skipping password reset email');
                         }
                     } catch (emailError) {
-                        Sentry.captureException(emailError);
                         console.error('Error sending password reset email:', emailError);
                         // Continue even if email fails
                     }
@@ -633,12 +607,10 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 } catch (dbError) {
-                    Sentry.captureException(dbError);
                     console.error('Database operation error:', dbError);
                     throw dbError; // Re-throw to be caught by the outer catch block
                 }
             } catch (error) {
-                Sentry.captureException(error);
                 console.error('Forgot password error:', error);
                 return new Response(JSON.stringify({ 
                     success: false, 
@@ -738,12 +710,10 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 } catch (dbError) {
-                    Sentry.captureException(dbError);
                     console.error('Database operation error:', dbError);
                     throw dbError; // Re-throw to be caught by the outer catch block
                 }
             } catch (error) {
-                Sentry.captureException(error);
                 console.error('Reset password error:', error);
                 return new Response(JSON.stringify({ 
                     success: false, 
@@ -839,12 +809,10 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 } catch (dbError) {
-                    Sentry.captureException(dbError);
                     console.error('Database operation error:', dbError);
                     throw dbError; // Re-throw to be caught by the outer catch block
                 }
             } catch (error) {
-                Sentry.captureException(error);
                 console.error('Device verification error:', error);
                 return new Response(JSON.stringify({ 
                     success: false, 
@@ -908,13 +876,10 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 } catch (dbError) {
-                    Sentry.captureException(dbError);
                     console.error('Database operation error:', dbError);
                     throw dbError; // Re-throw to be caught by the outer catch block
                 }
-            } catch (error) {
-                Sentry.captureException(error);
-                console.error('Logout error:', error);
+            } catch (error) {console.error('Logout error:', error);
                 return new Response(JSON.stringify({ 
                     success: false, 
                     message: 'An error occurred during logout' 
@@ -978,14 +943,12 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 } catch (dbError) {
-                    Sentry.captureException(dbError);
                     console.error('Database operation error:', dbError);
                     throw dbError; // Re-throw to be caught by the outer catch block
                 }
             } catch (error) {
-                Sentry.captureException(error);
                 console.error('Update theme preferences error:', error);
-                return new Response(JSON.stringify({ 
+                return new Response(JSON.stringify({
                     success: false, 
                     message: 'An error occurred while updating theme preferences' 
                 }), {
@@ -1045,12 +1008,10 @@ export function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 } catch (dbError) {
-                    Sentry.captureException(dbError);
                     console.error('Database operation error:', dbError);
                     throw dbError; // Re-throw to be caught by the outer catch block
                 }
             } catch (error) {
-                Sentry.captureException(error);
                 console.error('Get theme preferences error:', error);
                 return new Response(JSON.stringify({ 
                     success: false, 

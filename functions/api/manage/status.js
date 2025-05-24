@@ -1,18 +1,4 @@
 import prisma, { initializeD1Client } from '../lib/prisma.js';
-import * as Sentry from '@sentry/node';
-
-Sentry.init({
-    dsn: "https://342a3da4b820d22a01431d0c0201a770@o4508938006626304.ingest.de.sentry.io/4509362550734928",
-
-    // Setting this option to true will send default PII data to Sentry.
-    // For example, automatic IP address collection on events
-    sendDefaultPii: true,
-
-    // Disable HTTP instrumentation to avoid "this.enable is not a function" error
-    integrations: (integrations) => {
-        return integrations.filter(integration => integration.name !== 'Http');
-    }
-});
 
 export function onRequest(context) {
     return (async () => {
@@ -48,8 +34,7 @@ export function onRequest(context) {
                 });
             } catch (error) {
                 console.error('Database latency check error:', error);
-                Sentry.captureException(error);
-                return new Response(JSON.stringify({ 
+                return new Response(JSON.stringify({
                     success: false, 
                     message: 'Failed to check database latency' 
                 }), {

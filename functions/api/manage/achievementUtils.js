@@ -1,15 +1,4 @@
 import prisma, { initializeD1Client } from '../lib/prisma.js';
-import * as Sentry from '@sentry/node';
-
-Sentry.init({
-    dsn: "https://342a3da4b820d22a01431d0c0201a770@o4508938006626304.ingest.de.sentry.io/4509362550734928",
-    sendDefaultPii: true,
-
-    // Disable HTTP instrumentation to avoid "this.enable is not a function" error
-    integrations: (integrations) => {
-        return integrations.filter(integration => integration.name !== 'Http');
-    }
-});
 
 /**
  * Award an achievement to a user
@@ -217,7 +206,6 @@ export async function getAllAchievements() {
     return achievements;
   } catch (error) {
     console.error('Error getting all achievements:', error);
-    Sentry.captureException(error);
     throw error;
   }
 }
@@ -251,7 +239,6 @@ export async function createAchievement(code, name, description) {
     return achievement;
   } catch (error) {
     console.error('Error creating achievement:', error);
-    Sentry.captureException(error);
     throw error;
   }
 }
@@ -276,7 +263,6 @@ export async function updateAchievement(id, name, description) {
     return achievement;
   } catch (error) {
     console.error('Error updating achievement:', error);
-    Sentry.captureException(error);
     throw error;
   }
 }
@@ -313,7 +299,6 @@ export async function deleteAchievement(id) {
     return achievement;
   } catch (error) {
     console.error('Error deleting achievement:', error);
-    Sentry.captureException(error);
     throw error;
   }
 }
@@ -391,8 +376,7 @@ export function onRequest(context) {
         });
       } catch (error) {
         console.error('Get all achievements error:', error);
-        Sentry.captureException(error);
-        return new Response(JSON.stringify({ 
+        return new Response(JSON.stringify({
           success: false, 
           message: 'An error occurred while fetching achievements' 
         }), {
@@ -466,8 +450,7 @@ export function onRequest(context) {
         });
       } catch (error) {
         console.error('Create achievement error:', error);
-        Sentry.captureException(error);
-        return new Response(JSON.stringify({ 
+        return new Response(JSON.stringify({
           success: false, 
           message: error.message || 'An error occurred while creating achievement' 
         }), {
@@ -541,8 +524,7 @@ export function onRequest(context) {
         });
       } catch (error) {
         console.error('Update achievement error:', error);
-        Sentry.captureException(error);
-        return new Response(JSON.stringify({ 
+        return new Response(JSON.stringify({
           success: false, 
           message: error.message || 'An error occurred while updating achievement' 
         }), {
@@ -614,8 +596,7 @@ export function onRequest(context) {
         });
       } catch (error) {
         console.error('Delete achievement error:', error);
-        Sentry.captureException(error);
-        return new Response(JSON.stringify({ 
+        return new Response(JSON.stringify({
           success: false, 
           message: error.message || 'An error occurred while deleting achievement' 
         }), {

@@ -1,18 +1,4 @@
 import prisma, { initializeD1Client } from '../lib/prisma.js';
-import * as Sentry from "@sentry/node";
-
-Sentry.init({
-    dsn: "https://342a3da4b820d22a01431d0c0201a770@o4508938006626304.ingest.de.sentry.io/4509362550734928",
-
-    // Setting this option to true will send default PII data to Sentry.
-    // For example, automatic IP address collection on events
-    sendDefaultPii: true,
-
-    // Disable HTTP instrumentation to avoid "this.enable is not a function" error
-    integrations: (integrations) => {
-        return integrations.filter(integration => integration.name !== 'Http');
-    }
-});
 
 // Initialize default services if they don't exist
 async function initializeServices(env) {
@@ -52,7 +38,6 @@ async function initializeServices(env) {
         }
     } catch (error) {
         console.error('Error initializing services:', error);
-        Sentry.captureException(error);
     }
 }
 
@@ -69,7 +54,6 @@ export function onRequest(context) {
         // Initialize default services if needed
         await initializeServices(env).catch(error => {
             console.error('Error during service initialization:', error);
-            Sentry.captureException(error);
         });
 
         // Parse the request body
@@ -165,8 +149,7 @@ export function onRequest(context) {
                 });
             } catch (error) {
                 console.error('Get service requests error:', error);
-                Sentry.captureException(error);
-                return new Response(JSON.stringify({ 
+                return new Response(JSON.stringify({
                     success: false, 
                     message: 'An error occurred while fetching service requests' 
                 }), {
@@ -273,8 +256,7 @@ export function onRequest(context) {
                 });
             } catch (error) {
                 console.error('Update service request status error:', error);
-                Sentry.captureException(error);
-                return new Response(JSON.stringify({ 
+                return new Response(JSON.stringify({
                     success: false, 
                     message: 'An error occurred while updating service request status' 
                 }), {
@@ -340,8 +322,7 @@ export function onRequest(context) {
                 });
             } catch (error) {
                 console.error('Get services error:', error);
-                Sentry.captureException(error);
-                return new Response(JSON.stringify({ 
+                return new Response(JSON.stringify({
                     success: false, 
                     message: 'An error occurred while fetching services' 
                 }), {
@@ -427,8 +408,7 @@ export function onRequest(context) {
                 });
             } catch (error) {
                 console.error('Request service error:', error);
-                Sentry.captureException(error);
-                return new Response(JSON.stringify({ 
+                return new Response(JSON.stringify({
                     success: false, 
                     message: 'An error occurred while submitting your request' 
                 }), {
