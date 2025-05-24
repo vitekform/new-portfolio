@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import {FaGithub, FaLinkedin, FaTwitter, FaEnvelope, FaHeart, FaDiscord} from 'react-icons/fa';
+import {FaGithub, FaLinkedin, FaTwitter, FaEnvelope, FaHeart, FaDiscord, FaCloudflare} from 'react-icons/fa';
 import { motion } from 'framer-motion';
 
 const Footer = () => {
@@ -46,7 +46,7 @@ const Footer = () => {
             © {currentYear} ganamaga. All rights reserved.
           </Copyright>
           <MadeWith>
-            Made with <HeartIcon><FaHeart /></HeartIcon> using React
+            Made with <HeartIcon><FaHeart /></HeartIcon> using React<br/>Hosted on Cloudflare Pages <FaCloudflare />
           </MadeWith>
         </FooterBottom>
       </div>
