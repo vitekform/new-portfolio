@@ -1,4 +1,4 @@
-import prisma, { initializeD1Client } from '../lib/prisma.js';
+import getD1Client, { initializeD1Client } from '../lib/d1.js';
 
 /**
  * Award an achievement to a user
@@ -7,13 +7,16 @@ import prisma, { initializeD1Client } from '../lib/prisma.js';
  * @returns {Promise<Object>} - The created user achievement
  */
 export async function awardAchievement(userId, achievementCode) {
+  const d1 = getD1Client();
   try {
     // Check if the user already has this achievement
-    const existingAchievement = await prisma.userAchievement.findUnique({
+    const achievement = await d1.achievement.findUnique({ where: { code: achievementCode } });
+    if (!achievement) throw new Error(`Achievement with code ${achievementCode} not found`);
+    const existingAchievement = await d1.userAchievement.findUnique({
       where: {
         user_id_achievement_id: {
           user_id: userId,
-          achievement_id: (await prisma.achievement.findUnique({ where: { code: achievementCode } })).id
+          achievement_id: achievement.id
         }
       }
     });
@@ -22,37 +25,25 @@ export async function awardAchievement(userId, achievementCode) {
       return existingAchievement;
     }
 
-    // Find the achievement
-    const achievement = await prisma.achievement.findUnique({
-      where: { code: achievementCode },
-    });
-
-    if (!achievement) {
-      throw new Error(`Achievement with code ${achievementCode} not found`);
-    }
-
     // Award the achievement to the user
-    const userAchievement = await prisma.userAchievement.create({
+    const userAchievement = await d1.userAchievement.create({
       data: {
-        user: { connect: { id: userId } },
-        achievement: { connect: { id: achievement.id } },
-      },
-      include: {
-        achievement: true,
-      },
+        user_id: userId,
+        achievement_id: achievement.id,
+      }
     });
 
     // Check if this achievement unlocks any secret settings
-    const secretSettings = await prisma.secretSetting.findMany({
+    const secretSettings = await d1.secretSetting.findMany({
       where: { achievement_id: achievement.id },
     });
 
     // Unlock the secret settings for the user
     for (const setting of secretSettings) {
-      await prisma.userSecretSetting.create({
+      await d1.userSecretSetting.create({
         data: {
-          user: { connect: { id: userId } },
-          secret_setting: { connect: { id: setting.id } },
+          user_id: userId,
+          secret_setting_id: setting.id,
         },
       });
     }
@@ -71,13 +62,15 @@ export async function awardAchievement(userId, achievementCode) {
  * @returns {Promise<Object>} - The created user easter egg
  */
 export async function unlockEasterEgg(userId, easterEggCode) {
+  const d1 = getD1Client();
   try {
-    // Check if the user already has this easter egg
-    const existingEasterEgg = await prisma.userEasterEgg.findUnique({
+    const easterEgg = await d1.easterEgg.findUnique({ where: { code: easterEggCode } });
+    if (!easterEgg) throw new Error(`Easter egg with code ${easterEggCode} not found`);
+    const existingEasterEgg = await d1.userEasterEgg.findUnique({
       where: {
         user_id_easter_egg_id: {
           user_id: userId,
-          easter_egg_id: (await prisma.easterEgg.findUnique({ where: { code: easterEggCode } })).id
+          easter_egg_id: easterEgg.id
         }
       }
     });
@@ -86,37 +79,25 @@ export async function unlockEasterEgg(userId, easterEggCode) {
       return existingEasterEgg;
     }
 
-    // Find the easter egg
-    const easterEgg = await prisma.easterEgg.findUnique({
-      where: { code: easterEggCode },
-    });
-
-    if (!easterEgg) {
-      throw new Error(`Easter egg with code ${easterEggCode} not found`);
-    }
-
     // Unlock the easter egg for the user
-    const userEasterEgg = await prisma.userEasterEgg.create({
+    const userEasterEgg = await d1.userEasterEgg.create({
       data: {
-        user: { connect: { id: userId } },
-        easter_egg: { connect: { id: easterEgg.id } },
-      },
-      include: {
-        easter_egg: true,
-      },
+        user_id: userId,
+        easter_egg_id: easterEgg.id,
+      }
     });
 
     // Check if this easter egg unlocks any secret settings
-    const secretSettings = await prisma.secretSetting.findMany({
+    const secretSettings = await d1.secretSetting.findMany({
       where: { easter_egg_id: easterEgg.id },
     });
 
     // Unlock the secret settings for the user
     for (const setting of secretSettings) {
-      await prisma.userSecretSetting.create({
+      await d1.userSecretSetting.create({
         data: {
-          user: { connect: { id: userId } },
-          secret_setting: { connect: { id: setting.id } },
+          user_id: userId,
+          secret_setting_id: setting.id,
         },
       });
     }
@@ -134,14 +115,11 @@ export async function unlockEasterEgg(userId, easterEggCode) {
  * @returns {Promise<Array>} - The user's achievements
  */
 export async function getUserAchievements(userId) {
+  const d1 = getD1Client();
   try {
-    const userAchievements = await prisma.userAchievement.findMany({
-      where: { user_id: userId },
-      include: {
-        achievement: true,
-      },
+    const userAchievements = await d1.userAchievement.findMany({
+      where: { user_id: userId }
     });
-
     return userAchievements;
   } catch (error) {
     console.error('Error getting user achievements:', error);
@@ -155,14 +133,11 @@ export async function getUserAchievements(userId) {
  * @returns {Promise<Array>} - The user's easter eggs
  */
 export async function getUserEasterEggs(userId) {
+  const d1 = getD1Client();
   try {
-    const userEasterEggs = await prisma.userEasterEgg.findMany({
-      where: { user_id: userId },
-      include: {
-        easter_egg: true,
-      },
+    const userEasterEggs = await d1.userEasterEgg.findMany({
+      where: { user_id: userId }
     });
-
     return userEasterEggs;
   } catch (error) {
     console.error('Error getting user easter eggs:', error);
@@ -176,14 +151,11 @@ export async function getUserEasterEggs(userId) {
  * @returns {Promise<Array>} - The user's secret settings
  */
 export async function getUserSecretSettings(userId) {
+  const d1 = getD1Client();
   try {
-    const userSecretSettings = await prisma.userSecretSetting.findMany({
-      where: { user_id: userId },
-      include: {
-        secret_setting: true,
-      },
+    const userSecretSettings = await d1.userSecretSetting.findMany({
+      where: { user_id: userId }
     });
-
     return userSecretSettings;
   } catch (error) {
     console.error('Error getting user secret settings:', error);
@@ -196,13 +168,9 @@ export async function getUserSecretSettings(userId) {
  * @returns {Promise<Array>} - All achievements
  */
 export async function getAllAchievements() {
+  const d1 = getD1Client();
   try {
-    const achievements = await prisma.achievement.findMany({
-      orderBy: {
-        created_at: 'desc'
-      }
-    });
-
+    const achievements = await d1.achievement.findMany();
     return achievements;
   } catch (error) {
     console.error('Error getting all achievements:', error);
@@ -218,9 +186,10 @@ export async function getAllAchievements() {
  * @returns {Promise<Object>} - The created achievement
  */
 export async function createAchievement(code, name, description) {
+  const d1 = getD1Client();
   try {
     // Check if achievement with this code already exists
-    const existingAchievement = await prisma.achievement.findUnique({
+    const existingAchievement = await d1.achievement.findUnique({
       where: { code }
     });
 
@@ -228,7 +197,7 @@ export async function createAchievement(code, name, description) {
       throw new Error(`Achievement with code ${code} already exists`);
     }
 
-    const achievement = await prisma.achievement.create({
+    const achievement = await d1.achievement.create({
       data: {
         code,
         name,
@@ -251,8 +220,9 @@ export async function createAchievement(code, name, description) {
  * @returns {Promise<Object>} - The updated achievement
  */
 export async function updateAchievement(id, name, description) {
+  const d1 = getD1Client();
   try {
-    const achievement = await prisma.achievement.update({
+    const achievement = await d1.achievement.update({
       where: { id },
       data: {
         name,
@@ -273,9 +243,10 @@ export async function updateAchievement(id, name, description) {
  * @returns {Promise<Object>} - The deleted achievement
  */
 export async function deleteAchievement(id) {
+  const d1 = getD1Client();
   try {
     // Check if achievement is being used by any users
-    const userAchievements = await prisma.userAchievement.findMany({
+    const userAchievements = await d1.userAchievement.findMany({
       where: { achievement_id: id }
     });
 
@@ -284,7 +255,7 @@ export async function deleteAchievement(id) {
     }
 
     // Check if achievement is linked to any secret settings
-    const secretSettings = await prisma.secretSetting.findMany({
+    const secretSettings = await d1.secretSetting.findMany({
       where: { achievement_id: id }
     });
 
@@ -292,7 +263,7 @@ export async function deleteAchievement(id) {
       throw new Error('Cannot delete achievement that is linked to secret settings');
     }
 
-    const achievement = await prisma.achievement.delete({
+    const achievement = await d1.achievement.delete({
       where: { id }
     });
 
@@ -310,6 +281,7 @@ export function onRequest(context) {
 
     // Initialize the D1 client with the environment
     initializeD1Client(env);
+    const d1 = getD1Client(env);
 
     // Parse the request body
     const requestData = await request.json();
@@ -332,14 +304,10 @@ export function onRequest(context) {
         }
 
         // Verify user authentication and check if user is admin or root
-        const user = await prisma.user.findFirst({
+        const user = await d1.user.findFirst({
           where: {
             id: parseInt(userId),
             token: token
-          },
-          select: {
-            id: true,
-            role: true
           }
         });
 
@@ -405,14 +373,10 @@ export function onRequest(context) {
         }
 
         // Verify user authentication and check if user is admin or root
-        const user = await prisma.user.findFirst({
+        const user = await d1.user.findFirst({
           where: {
             id: parseInt(userId),
             token: token
-          },
-          select: {
-            id: true,
-            role: true
           }
         });
 
@@ -479,14 +443,10 @@ export function onRequest(context) {
         }
 
         // Verify user authentication and check if user is admin or root
-        const user = await prisma.user.findFirst({
+        const user = await d1.user.findFirst({
           where: {
             id: parseInt(userId),
             token: token
-          },
-          select: {
-            id: true,
-            role: true
           }
         });
 
@@ -551,14 +511,10 @@ export function onRequest(context) {
         }
 
         // Verify user authentication and check if user is admin or root
-        const user = await prisma.user.findFirst({
+        const user = await d1.user.findFirst({
           where: {
             id: parseInt(userId),
             token: token
-          },
-          select: {
-            id: true,
-            role: true
           }
         });
 

@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import sgMail from '@sendgrid/mail';
-import prisma, { initializeD1Client } from '../lib/prisma.js';
+import getD1Client, { initializeD1Client } from '../lib/d1.js'; // Use D1 client
 import { awardAchievement } from './achievementUtils.js';
 
 export function onRequest(context) {
@@ -11,6 +11,7 @@ export function onRequest(context) {
 
         // Initialize the D1 client with the environment
         initializeD1Client(env);
+        const d1 = getD1Client(env);
 
         // Parse the request body
         const requestData = await request.json();
@@ -35,7 +36,7 @@ export function onRequest(context) {
 
                 // Check if username or email already exists
                     // Check for existing user with the same username or email
-                    const existingUser = await prisma.user.findFirst({
+                    const existingUser = await d1.user.findFirst({
                         where: {
                             OR: [
                                 { username: username },
@@ -75,7 +76,7 @@ export function onRequest(context) {
                     const token = crypto.randomBytes(128).toString('hex'); // 128 bytes = 256 hex characters
 
                     // Insert new user
-                    const newUser = await prisma.user.create({
+                    const newUser = await d1.user.create({
                         data: {
                             username,
                             email,
@@ -101,7 +102,7 @@ export function onRequest(context) {
                     verificationExpiry.setHours(verificationExpiry.getHours() + 24); // Token valid for 24 hours
 
                     // Store verification token in user's record
-                    await prisma.user.update({
+                    await d1.user.update({
                         where: { id: newUserId },
                         data: {
                             verification_tokens: {
@@ -191,7 +192,7 @@ export function onRequest(context) {
 
                 try {
                     // Find user by username
-                    const user = await prisma.user.findFirst({
+                    const user = await d1.user.findFirst({
                         where: {
                             OR: [
                                 { username: username },
@@ -227,7 +228,7 @@ export function onRequest(context) {
                     const token = crypto.randomBytes(128).toString('hex');
 
                     // Update user's token
-                    await prisma.user.update({
+                    await d1.user.update({
                         where: { id: user.id },
                         data: { token: token }
                     });
@@ -286,13 +287,13 @@ export function onRequest(context) {
                             const limitedHistory = updatedHistory.slice(-5);
 
                             // Update device history using D1
-                            await prisma.user.update({
+                            await d1.user.update({
                                 where: { id: user.id },
                                 data: { device_history: limitedHistory }
                             });
                         } else {
                             // Initialize device history using D1
-                            await prisma.user.update({
+                            await d1.user.update({
                                 where: { id: user.id },
                                 data: { device_history: [deviceInfo] }
                             });
@@ -347,7 +348,7 @@ export function onRequest(context) {
 
                 try {
                     // Check if user exists and token is valid
-                    const userData = await prisma.user.findFirst({
+                    const userData = await d1.user.findFirst({
                         where: {
                             id: parseInt(userId),
                             token: token
@@ -419,7 +420,7 @@ export function onRequest(context) {
 
                 try {
                     // Find user by ID
-                    const user = await prisma.user.findUnique({
+                    const user = await d1.user.findUnique({
                         where: { id: parseInt(userId) }
                     });
 
@@ -473,7 +474,7 @@ export function onRequest(context) {
                     }
 
                     // Update user role to 'user' (verified)
-                    await prisma.user.update({
+                    await d1.user.update({
                         where: { id: parseInt(userId) },
                         data: { 
                             role: 'user',
@@ -530,7 +531,7 @@ export function onRequest(context) {
 
                 try {
                     // Find user by email
-                    const user = await prisma.user.findUnique({
+                    const user = await d1.user.findUnique({
                         where: { email: email }
                     });
 
@@ -555,7 +556,7 @@ export function onRequest(context) {
                     verificationTokens.reset = resetToken;
                     verificationTokens.resetExpiry = resetExpiry.toISOString();
 
-                    await prisma.user.update({
+                    await d1.user.update({
                         where: { id: user.id },
                         data: { verification_tokens: verificationTokens }
                     });
@@ -642,7 +643,7 @@ export function onRequest(context) {
 
                 try {
                     // Find user by ID
-                    const user = await prisma.user.findUnique({
+                    const user = await d1.user.findUnique({
                         where: { id: parseInt(userId) }
                     });
 
@@ -693,7 +694,7 @@ export function onRequest(context) {
                     delete updatedVerificationTokens.reset;
                     delete updatedVerificationTokens.resetExpiry;
 
-                    await prisma.user.update({
+                    await d1.user.update({
                         where: { id: parseInt(userId) },
                         data: { 
                             password: password_hashed,
@@ -745,7 +746,7 @@ export function onRequest(context) {
 
                 try {
                     // Find user by ID and token
-                    const user = await prisma.user.findFirst({
+                    const user = await d1.user.findFirst({
                         where: {
                             id: parseInt(userId),
                             token: token
@@ -788,13 +789,13 @@ export function onRequest(context) {
                         const limitedHistory = updatedHistory.slice(-5);
 
                         // Update device history
-                        await prisma.user.update({
+                        await d1.user.update({
                             where: { id: parseInt(userId) },
                             data: { device_history: limitedHistory }
                         });
                     } else {
                         // Initialize device history
-                        await prisma.user.update({
+                        await d1.user.update({
                             where: { id: parseInt(userId) },
                             data: { device_history: [deviceInfo] }
                         });
@@ -843,7 +844,7 @@ export function onRequest(context) {
 
                 try {
                     // Find user by ID and token
-                    const user = await prisma.user.findFirst({
+                    const user = await d1.user.findFirst({
                         where: {
                             id: parseInt(userId),
                             token: token
@@ -862,7 +863,7 @@ export function onRequest(context) {
                     }
 
                     // Invalidate the token
-                    await prisma.user.update({
+                    await d1.user.update({
                         where: { id: parseInt(userId) },
                         data: { token: null }
                     });
@@ -910,7 +911,7 @@ export function onRequest(context) {
 
                 try {
                     // Find user by ID and token
-                    const user = await prisma.user.findFirst({
+                    const user = await d1.user.findFirst({
                         where: {
                             id: parseInt(userId),
                             token: token
@@ -929,7 +930,7 @@ export function onRequest(context) {
                     }
 
                     // Update theme preferences
-                    await prisma.user.update({
+                    await d1.user.update({
                         where: { id: parseInt(userId) },
                         data: { theme_preferences: themePreferences }
                     });
@@ -977,7 +978,7 @@ export function onRequest(context) {
 
                 try {
                     // Find user by ID and token
-                    const user = await prisma.user.findFirst({
+                    const user = await d1.user.findFirst({
                         where: {
                             id: parseInt(userId),
                             token: token

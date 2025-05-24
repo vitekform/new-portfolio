@@ -294,4 +294,11 @@ export function getD1Client(env) {
   return d1Client;
 }
 
+// Add this for compatibility with previous initializeD1Client usage
+export function initializeD1Client(env) {
+  // Optionally re-initialize d1Client if needed
+  // For now, just call getD1Client to ensure it's set
+  getD1Client(env);
+}
+
 export default getD1Client;

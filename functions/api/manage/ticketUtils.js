@@ -1,4 +1,4 @@
-import prisma, { initializeD1Client } from '../lib/prisma.js';
+import getD1Client, { initializeD1Client } from '../lib/d1.js';
 
 export function onRequest(context) {
     return (async () => {
@@ -7,6 +7,7 @@ export function onRequest(context) {
 
         // Initialize the D1 client with the environment
         initializeD1Client(env);
+        const d1 = getD1Client(env);
 
         // Parse the request body
         const requestData = await request.json();
@@ -31,7 +32,7 @@ export function onRequest(context) {
                 }
 
                 // Verify user authentication
-                const user = await prisma.user.findFirst({
+                const user = await d1.user.findFirst({
                     where: {
                         id: parseInt(userId),
                         token: token
@@ -53,7 +54,7 @@ export function onRequest(context) {
                 }
 
                 // Check if service request exists and belongs to the user or user is admin/root
-                const serviceRequest = await prisma.serviceRequest.findUnique({
+                const serviceRequest = await d1.serviceRequest.findUnique({
                     where: {
                         id: parseInt(serviceRequestId)
                     },
@@ -96,11 +97,11 @@ export function onRequest(context) {
                 }
 
                 // Create ticket
-                const ticket = await prisma.ticket.create({
+                const ticket = await d1.ticket.create({
                     data: {
                         title,
-                        user: { connect: { id: serviceRequest.user_id } },
-                        service_request: { connect: { id: parseInt(serviceRequestId) } }
+                        user_id: serviceRequest.user_id,
+                        service_request_id: parseInt(serviceRequestId)
                     }
                 });
 
@@ -141,7 +142,7 @@ export function onRequest(context) {
                 }
 
                 // Verify user authentication
-                const user = await prisma.user.findFirst({
+                const user = await d1.user.findFirst({
                     where: {
                         id: parseInt(userId),
                         token: token
@@ -174,7 +175,7 @@ export function onRequest(context) {
                 }
 
                 // Get tickets
-                const tickets = await prisma.ticket.findMany({
+                const tickets = await d1.ticket.findMany({
                     where: whereClause,
                     orderBy: {
                         updated_at: 'desc'
@@ -245,7 +246,7 @@ export function onRequest(context) {
                 }
 
                 // Verify user authentication
-                const user = await prisma.user.findFirst({
+                const user = await d1.user.findFirst({
                     where: {
                         id: parseInt(userId),
                         token: token
@@ -267,7 +268,7 @@ export function onRequest(context) {
                 }
 
                 // Get ticket
-                const ticket = await prisma.ticket.findUnique({
+                const ticket = await d1.ticket.findUnique({
                     where: {
                         id: parseInt(ticketId)
                     },
@@ -328,7 +329,7 @@ export function onRequest(context) {
                 );
 
                 if (unreadMessages.length > 0) {
-                    await prisma.ticketMessage.updateMany({
+                    await d1.ticketMessage.updateMany({
                         where: {
                             id: {
                                 in: unreadMessages.map(message => message.id)
@@ -377,7 +378,7 @@ export function onRequest(context) {
                 }
 
                 // Verify user authentication
-                const user = await prisma.user.findFirst({
+                const user = await d1.user.findFirst({
                     where: {
                         id: parseInt(userId),
                         token: token
@@ -399,7 +400,7 @@ export function onRequest(context) {
                 }
 
                 // Get ticket
-                const ticket = await prisma.ticket.findUnique({
+                const ticket = await d1.ticket.findUnique({
                     where: {
                         id: parseInt(ticketId)
                     }
@@ -438,11 +439,11 @@ export function onRequest(context) {
                 }
 
                 // Create message
-                const message = await prisma.ticketMessage.create({
+                const message = await d1.ticketMessage.create({
                     data: {
                         content,
-                        sender: { connect: { id: user.id } },
-                        ticket: { connect: { id: parseInt(ticketId) } }
+                        sender_id: user.id,
+                        ticket_id: parseInt(ticketId)
                     },
                     include: {
                         sender: {
@@ -456,7 +457,7 @@ export function onRequest(context) {
                 });
 
                 // Update ticket's updated_at timestamp
-                await prisma.ticket.update({
+                await d1.ticket.update({
                     where: {
                         id: parseInt(ticketId)
                     },
@@ -514,7 +515,7 @@ export function onRequest(context) {
                 }
 
                 // Verify user authentication
-                const user = await prisma.user.findFirst({
+                const user = await d1.user.findFirst({
                     where: {
                         id: parseInt(userId),
                         token: token
@@ -536,7 +537,7 @@ export function onRequest(context) {
                 }
 
                 // Get ticket
-                const ticket = await prisma.ticket.findUnique({
+                const ticket = await d1.ticket.findUnique({
                     where: {
                         id: parseInt(ticketId)
                     }
@@ -564,7 +565,7 @@ export function onRequest(context) {
                 }
 
                 // Update ticket status
-                const updatedTicket = await prisma.ticket.update({
+                const updatedTicket = await d1.ticket.update({
                     where: {
                         id: parseInt(ticketId)
                     },

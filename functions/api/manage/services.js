@@ -1,4 +1,4 @@
-import prisma, { initializeD1Client } from '../lib/prisma.js';
+import getD1Client, { initializeD1Client } from '../lib/d1.js';
 
 // Initialize default services if they don't exist
 async function initializeServices(env) {
@@ -7,13 +7,15 @@ async function initializeServices(env) {
         if (env) {
             initializeD1Client(env);
         }
+        const d1 = getD1Client(env);
 
         // Check if any services exist
-        const servicesCount = await prisma.service.count();
+        const services = await d1.service.findMany();
+        const servicesCount = services.length;
 
         if (servicesCount === 0) {
             // Insert default services
-            await prisma.service.createMany({
+            await d1.service.createMany({
                 data: [
                     {
                         name: 'Web Hosting',
@@ -50,6 +52,7 @@ export function onRequest(context) {
 
         // Initialize the D1 client with the environment
         initializeD1Client(env);
+        const d1 = getD1Client(env);
 
         // Initialize default services if needed
         await initializeServices(env).catch(error => {
@@ -78,7 +81,7 @@ export function onRequest(context) {
                 }
 
                 // Verify user authentication and check if user is admin or root
-                const user = await prisma.user.findFirst({
+                const user = await d1.user.findFirst({
                     where: {
                         id: parseInt(userId),
                         token: token
@@ -117,7 +120,7 @@ export function onRequest(context) {
                 }
 
                 // Get service requests
-                const serviceRequests = await prisma.serviceRequest.findMany({
+                const serviceRequests = await d1.serviceRequest.findMany({
                     where: whereClause,
                     orderBy: {
                         created_at: 'desc'
@@ -187,7 +190,7 @@ export function onRequest(context) {
                 }
 
                 // Verify user authentication and check if user is admin or root
-                const user = await prisma.user.findFirst({
+                const user = await d1.user.findFirst({
                     where: {
                         id: parseInt(userId),
                         token: token
@@ -220,7 +223,7 @@ export function onRequest(context) {
                 }
 
                 // Check if service request exists
-                const serviceRequest = await prisma.serviceRequest.findUnique({
+                const serviceRequest = await d1.serviceRequest.findUnique({
                     where: {
                         id: parseInt(requestId)
                     }
@@ -237,7 +240,7 @@ export function onRequest(context) {
                 }
 
                 // Update service request status
-                const updatedRequest = await prisma.serviceRequest.update({
+                const updatedRequest = await d1.serviceRequest.update({
                     where: {
                         id: parseInt(requestId)
                     },
@@ -281,7 +284,7 @@ export function onRequest(context) {
                 }
 
                 // Verify user authentication
-                const user = await prisma.user.findFirst({
+                const user = await d1.user.findFirst({
                     where: {
                         id: parseInt(userId),
                         token: token
@@ -302,7 +305,7 @@ export function onRequest(context) {
                 }
 
                 // Get all services
-                const services = await prisma.service.findMany({
+                const services = await d1.service.findMany({
                     orderBy: {
                         name: 'asc'
                     },
@@ -349,7 +352,7 @@ export function onRequest(context) {
                 }
 
                 // Verify user authentication
-                const user = await prisma.user.findFirst({
+                const user = await d1.user.findFirst({
                     where: {
                         id: parseInt(userId),
                         token: token
@@ -370,7 +373,7 @@ export function onRequest(context) {
                 }
 
                 // Verify service exists
-                const service = await prisma.service.findUnique({
+                const service = await d1.service.findUnique({
                     where: {
                         id: parseInt(serviceId)
                     },
@@ -390,7 +393,7 @@ export function onRequest(context) {
                 }
 
                 // Create service request
-                const serviceRequest = await prisma.serviceRequest.create({
+                const serviceRequest = await d1.serviceRequest.create({
                     data: {
                         user_id: parseInt(userId),
                         service_id: parseInt(serviceId),
