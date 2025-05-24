@@ -11,9 +11,14 @@ export async function registerUser(requestData) {
 
         // Validate input
         if (!username || !email || !password || !confirmPassword) {
+            let didnt_provide = [];
+            if (!username) didnt_provide.push('username');
+            if (!email) didnt_provide.push('email');
+            if (!password) didnt_provide.push('password');
+            if (!confirmPassword) didnt_provide.push('confirmPassword');
             return new Response(JSON.stringify({
                 success: false,
-                message: 'All fields are required'
+                message: 'All fields are required! You didnt provide: ' + didnt_provide
             }), {
                 status: 400,
                 headers: { 'Content-Type': 'application/json' }
