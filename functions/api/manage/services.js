@@ -41,8 +41,9 @@ async function initializeServices(env) {
     }
 }
 
-export async function POST(request, env) {
-    // Initialize services on first request if needed
+export async function onRequest(context) {
+    // Parse the request body
+    const { request, env } = context;
     await initializeServices(env);
 
     // Parse the request body

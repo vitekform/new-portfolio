@@ -3,8 +3,9 @@ import crypto from 'crypto';
 import sgMail from '@sendgrid/mail';
 import { awardAchievement } from './achievementUtils.js';
 
-export async function POST(request, env) {
+export async function onRequest(context) {
     // Parse the request body
+    const { request, env } = context;
     const requestData = await request.json();
     const action = requestData.action;
 
