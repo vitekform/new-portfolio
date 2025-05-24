@@ -1,4 +1,4 @@
 name = "new-portfolio"
 
 [vars]
-node_compat = "true"
+nodejs_compat = "true"
