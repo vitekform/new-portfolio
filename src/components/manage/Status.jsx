@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { FaServer, FaDatabase, FaSync } from 'react-icons/fa';
+import {FaServer, FaDatabase, FaSync, FaHeadset} from 'react-icons/fa';
 
 function Status() {
   const [loading, setLoading] = useState(true);
@@ -67,6 +67,17 @@ function Status() {
 
   const apiStatus = getLatencyStatus(apiLatency);
   const dbStatus = getLatencyStatus(dbLatency);
+  let chatbotOnline = false;
+  // Fetch /api/manage/chatbot/status to check if the chatbot is online (if status code 200)
+    fetch('/api/manage/chatbot/status')
+        .then(response => {
+        if (response.ok) {
+            chatbotOnline = true;
+        }
+        })
+        .catch(() => {
+        chatbotOnline = false;
+        });
 
   return (
     <StatusContainer>
@@ -115,6 +126,20 @@ function Status() {
                 </StatusValue>
                 <StatusIndicator status={dbStatus} />
               </>
+            )}
+          </StatusInfo>
+        </StatusCard>
+
+        <StatusCard>
+          <StatusInfo>
+            <FaHeadset/>
+          </StatusInfo>
+          <StatusInfo>
+            <StatusTitle>AI ChatBot</StatusTitle>
+            {chatbotOnline ? (
+                <StatusValue color={"green"}>Online</StatusValue>
+            ) : (
+                <StatusValue color={"red"}>Offline</StatusValue>
             )}
           </StatusInfo>
         </StatusCard>
