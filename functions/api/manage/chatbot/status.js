@@ -1,6 +1,6 @@
 export async function onRequest(context) {
     const aiEndpoint = context.env.AI_ENDPOINT;
-    const response = await fetch(`${aiEndpoint}/status`, {
+    const response = await fetch(`${aiEndpoint}/health`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
