@@ -4,6 +4,8 @@ import styled from 'styled-components';
 import { FaLock, FaSpinner, FaArrowLeft, FaCheckCircle } from 'react-icons/fa';
 import { Link, useSearchParams } from 'react-router-dom';
 import ThemeToggle from '../common/ThemeToggle';
+import '../../App.css';
+import '../../index.css';
 
 function ResetPassword() {
   const [searchParams] = useSearchParams();

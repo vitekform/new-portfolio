@@ -4,6 +4,8 @@ import styled from 'styled-components';
 import { FaUser, FaEnvelope, FaLock, FaSpinner, FaSignInAlt } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import ThemeToggle from '../common/ThemeToggle';
+import '../../App.css';
+import '../../index.css';
 
 function Register() {
   const [formData, setFormData] = useState({

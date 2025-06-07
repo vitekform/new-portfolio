@@ -4,6 +4,8 @@ import styled from 'styled-components';
 import { FaEnvelope, FaSpinner, FaArrowLeft } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import ThemeToggle from '../common/ThemeToggle';
+import '../../App.css';
+import '../../index.css';
 
 function ForgotPassword() {
   const [email, setEmail] = useState('');

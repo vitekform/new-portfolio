@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { FaCheckCircle, FaTimesCircle, FaSpinner } from 'react-icons/fa';
+import '../../App.css';
+import '../../index.css';
 
 function VerifyEmail() {
   const [searchParams] = useSearchParams();

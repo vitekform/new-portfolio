@@ -1,0 +1,517 @@
+.app {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+}
+
+h1 {
+    text-align: center;
+    color: #2c3e50;
+    margin-bottom: 30px;
+}
+
+/* Main Menu Styles */
+.main-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.player-section {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border: 2px solid #dee2e6;
+}
+
+.player-section input {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+.difficulty-section {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border: 2px solid #dee2e6;
+}
+
+.difficulty-option {
+    margin: 10px 0;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+}
+
+.difficulty-option label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.difficulty-option input[type="radio"] {
+    margin-right: 10px;
+}
+
+.custom-ships-section {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border: 2px solid #dee2e6;
+}
+
+.custom-ships {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.ship-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px;
+}
+
+.ship-selector input {
+    width: 60px;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.menu-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    align-items: center;
+}
+
+.menu-buttons button {
+    width: 300px;
+    padding: 15px;
+    font-size: 16px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.menu-buttons button:hover {
+    background: #0056b3;
+}
+
+.menu-buttons button:nth-child(2) {
+    background: #dc3545;
+}
+
+.menu-buttons button:nth-child(2):hover {
+    background: #c82333;
+}
+
+/* Competitive Setup Styles */
+.competitive-setup {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.setup-header {
+    text-align: center;
+    margin-bottom: 30px;
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border: 2px solid #dee2e6;
+}
+
+.setup-header h2 {
+    color: #dc3545;
+    margin: 0;
+}
+
+.setup-container {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: 30px;
+    margin-bottom: 30px;
+}
+
+.setup-controls {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border: 2px solid #dee2e6;
+    height: fit-content;
+}
+
+.ship-harbor {
+    margin-bottom: 25px;
+}
+
+.ship-harbor h4 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+}
+
+.harbor-ship {
+    margin: 10px 0;
+}
+
+.harbor-ship button {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.harbor-ship button:hover {
+    background: #e9ecef;
+    border-color: #007bff;
+}
+
+.harbor-ship button.selected {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.all-ships-placed {
+    color: #28a745;
+    font-weight: bold;
+    text-align: center;
+    padding: 15px;
+    background: #d4edda;
+    border-radius: 6px;
+    margin: 10px 0;
+}
+
+.ship-controls {
+    margin: 25px 0;
+    padding: 20px;
+    background: #e9ecef;
+    border-radius: 6px;
+    border: 1px solid #ced4da;
+}
+
+.ship-controls h4 {
+    margin: 0 0 15px 0;
+    color: #495057;
+}
+
+.ship-controls button {
+    width: 100%;
+    padding: 10px;
+    background: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-bottom: 15px;
+    font-size: 14px;
+}
+
+.ship-controls button:hover {
+    background: #5a6268;
+}
+
+.ship-preview {
+    display: flex;
+    justify-content: center;
+    margin-top: 15px;
+}
+
+.ship-preview-grid {
+    display: grid;
+    gap: 2px;
+    background: #333;
+    padding: 5px;
+    border-radius: 4px;
+}
+
+.preview-cell {
+    width: 20px;
+    height: 20px;
+    border: 1px solid #666;
+}
+
+.preview-cell.ship {
+    background: #007bff;
+}
+
+.preview-cell.empty {
+    background: #e9ecef;
+}
+
+.setup-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.setup-actions button {
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.auto-place {
+    background: #28a745;
+    color: white;
+}
+
+.auto-place:hover {
+    background: #218838;
+}
+
+.clear-board {
+    background: #ffc107;
+    color: #212529;
+}
+
+.clear-board:hover {
+    background: #e0a800;
+}
+
+.setup-board-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.setup-board-container h4 {
+    color: #2c3e50;
+    font-size: 18px;
+    margin: 0;
+}
+
+.setup-board {
+    display: grid;
+    gap: 2px;
+    background: #333;
+    padding: 10px;
+    border-radius: 8px;
+    max-width: 600px;
+}
+
+.setup-board .cell {
+    width: 30px;
+    height: 30px;
+    background: #4fc3f7;
+    border: 1px solid #29b6f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s;
+}
+
+.setup-board .cell.ship {
+    background: #424242;
+    color: white;
+    border-color: #616161;
+}
+
+.setup-board .cell.water:hover {
+    background: #81d4fa;
+    transform: scale(1.05);
+}
+
+.setup-board .cell.ship:hover {
+    background: #616161;
+    transform: scale(1.05);
+}
+
+.setup-board .cell.hover-preview {
+    background: #a5d6a7 !important;
+    border-color: #4caf50 !important;
+}
+
+.setup-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+}
+
+.back-button {
+    padding: 12px 24px;
+    background: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.back-button:hover {
+    background: #5a6268;
+}
+
+.start-game-button {
+    padding: 15px 30px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: bold;
+    animation: pulse 2s infinite;
+}
+
+.start-game-button:hover {
+    background: #218838;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+/* Game Styles */
+.game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.single-board-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.game-info {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border: 2px solid #dee2e6;
+    text-align: center;
+    min-width: 300px;
+}
+
+.victory {
+    color: #28a745;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+/* Competitive Mode Styles */
+.competitive-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.competitive-boards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    max-width: 1200px;
+}
+
+.board-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.board-section h4 {
+    margin: 0;
+    color: #2c3e50;
+    font-size: 18px;
+}
+
+.turn-indicator {
+    font-size: 18px;
+    font-weight: bold;
+    padding: 10px;
+    border-radius: 8px;
+    margin: 10px 0;
+}
+
+.turn-indicator.player {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.turn-indicator.computer {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.game-board {
+    display: grid;
+    gap: 2px;
+    background: #333;
+    padding: 10px;
+    border-radius: 8px;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.game-board.disabled {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.cell {
+    width: 30px;
+    height: 30px;
+    background: #e3f2fd;
+    border: 1px solid #90caf9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s;
+}
+
+.cell:hover {
+    background: #bbdefb;
+    transform: scale(1.05);
+}
+
+.cell.unrevealed {
+    background: #e3f2fd;
+}
+
+.cell.miss {
+    background: #cfd8dc;
+    cursor: default;
+}
+
+.cell.hit {
+    background: #f44336;
+    color: white;
+    cursor: default;
+}

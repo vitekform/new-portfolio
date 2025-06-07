@@ -7,6 +7,7 @@ import Projects from './Projects';
 import Footer from './Footer';
 import { useTheme } from '../context/ThemeContext';
 import '../App.css';
+import '../index.css';
 
 // Create a global style for dark mode
 const GlobalStyle = createGlobalStyle`

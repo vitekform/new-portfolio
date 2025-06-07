@@ -7,7 +7,7 @@ import VerifyEmail from './components/manage/VerifyEmail';
 import ForgotPassword from './components/manage/ForgotPassword';
 import ResetPassword from './components/manage/ResetPassword';
 import { ThemeProvider } from './context/ThemeContext';
-import './App.css';
+import BattleShips from "./components/Battleships.jsx";
 
 // Create router configuration
 const router = createBrowserRouter([
@@ -38,6 +38,10 @@ const router = createBrowserRouter([
   {
     path: '/verify-email',
     element: <VerifyEmail />
+  },
+  {
+    path: '/battleships',
+    element: <BattleShips/>
   }
 ]);
 

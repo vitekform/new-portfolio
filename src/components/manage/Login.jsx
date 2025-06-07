@@ -5,6 +5,8 @@ import { FaUser, FaLock, FaSpinner, FaUserPlus } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import ThemeToggle from '../common/ThemeToggle';
 import DeviceVerification from './DeviceVerification';
+import '../../App.css';
+import '../../index.css';
 
 function Login() {
   const [formData, setFormData] = useState({
