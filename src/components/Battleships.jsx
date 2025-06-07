@@ -47,6 +47,26 @@ const BattleShips = () => {
         localStorage.setItem('battleshipStats', JSON.stringify(stats));
     };
 
+    // Funkce pro uložení statistik výhry
+    const handleGameWon = (stats) => {
+        if (currentPlayer) {
+            const newStats = { ...playerStats };
+            if (!newStats[currentPlayer]) newStats[currentPlayer] = [];
+            newStats[currentPlayer].push({ ...stats, result: 'win' });
+            saveStats(newStats);
+        }
+    };
+
+    // Funkce pro uložení statistik prohry
+    const handleGameLost = (stats) => {
+        if (currentPlayer) {
+            const newStats = { ...playerStats };
+            if (!newStats[currentPlayer]) newStats[currentPlayer] = [];
+            newStats[currentPlayer].push({ ...stats, result: 'loss' });
+            saveStats(newStats);
+        }
+    };
+
     const startGame = (difficulty, customShips = null, gameType = 'classic') => {
         const config = DIFFICULTY_CONFIGS[difficulty];
         const ships = customShips || config.ships;
@@ -174,14 +194,7 @@ const BattleShips = () => {
                     gameState={gameState}
                     setGameState={setGameState}
                     onBackToMenu={() => setGameMode('menu')}
-                    onGameWon={(stats) => {
-                        if (currentPlayer) {
-                            const newStats = { ...playerStats };
-                            if (!newStats[currentPlayer]) newStats[currentPlayer] = [];
-                            newStats[currentPlayer].push(stats);
-                            saveStats(newStats);
-                        }
-                    }}
+                    onGameWon={handleGameWon}
                 />
             )}
 
@@ -199,14 +212,8 @@ const BattleShips = () => {
                     gameState={gameState}
                     setGameState={setGameState}
                     onBackToMenu={() => setGameMode('menu')}
-                    onGameWon={(stats) => {
-                        if (currentPlayer) {
-                            const newStats = { ...playerStats };
-                            if (!newStats[currentPlayer]) newStats[currentPlayer] = [];
-                            newStats[currentPlayer].push(stats);
-                            saveStats(newStats);
-                        }
-                    }}
+                    onGameWon={handleGameWon}
+                    onGameLost={handleGameLost}
                 />
             )}
 
@@ -650,7 +657,7 @@ const GameComponent = ({ gameState, setGameState, onBackToMenu, onGameWon }) => 
 };
 
 // Kompetitivní herní komponenta
-const CompetitiveComponent = ({ gameState, setGameState, onBackToMenu, onGameWon }) => {
+const CompetitiveComponent = ({ gameState, setGameState, onBackToMenu, onGameWon, onGameLost }) => {
     const [currentTime, setCurrentTime] = useState(0);
 
     // Už zase updatujeme čas každou sekundu
@@ -697,6 +704,7 @@ const CompetitiveComponent = ({ gameState, setGameState, onBackToMenu, onGameWon
                 difficulty: gameState.difficulty,
                 ships: gameState.ships,
                 moves: newMoves,
+                computerMoves: gameState.computerMoves,
                 time: gameTime,
                 date: new Date().toISOString(),
                 gameType: 'competitive',
@@ -762,6 +770,17 @@ const CompetitiveComponent = ({ gameState, setGameState, onBackToMenu, onGameWon
         const aiWon = aiRevealedShipCells === gameState.playerShipCells; // Pokud AI potopila všechny lodě hráče, tak vyhrála (logic)
 
         if (aiWon) {
+            const gameTime = Date.now() - gameState.startTime;
+            onGameLost({
+                difficulty: gameState.difficulty,
+                ships: gameState.ships,
+                moves: gameState.moves,
+                computerMoves: newComputerMoves,
+                time: gameTime,
+                date: new Date().toISOString(),
+                gameType: 'competitive',
+                winner: 'computer'
+            });
             setGameState({
                 ...gameState,
                 playerRevealedBoard: newPlayerRevealedBoard,
@@ -1012,9 +1031,16 @@ const StatsComponent = ({ playerStats, currentPlayer, onBackToMenu }) => {
                                     <p><strong>Hra #{index + 1}</strong></p>
                                     <p>Mód: {game.gameType === 'competitive' ? 'Kompetitivní' : 'Klasický'}</p>
                                     <p>Obtížnost: {game.difficulty}</p>
-                                    <p>Tahy: {game.moves}</p>
+                                    <p>Vaše tahy: {game.moves}</p>
+                                    {game.computerMoves && <p>Tahy počítače: {game.computerMoves}</p>}
                                     <p>Čas: {Math.floor(game.time / 1000)}s</p>
-                                    {game.winner && <p>Výsledek: {game.winner === 'player' ? 'Výhra' : 'Prohra'}</p>}
+                                    <p className={`result ${game.result || (game.winner === 'player' ? 'win' : 'loss')}`}>
+                                        Výsledek: {
+                                        game.result === 'win' || game.winner === 'player'
+                                            ? '🏆 Výhra'
+                                            : '💀 Prohra'
+                                    }
+                                    </p>
                                     <p>Datum: {new Date(game.date).toLocaleDateString()}</p>
                                 </div>
                             ))}

@@ -625,3 +625,22 @@ h1 {
 .game-stat strong {
     color: #007bff;
 }
+
+.game-stat .result {
+    font-weight: bold;
+    padding: 5px 10px;
+    border-radius: 4px;
+    margin: 5px 0;
+}
+
+.game-stat .result.win {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.game-stat .result.loss {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
