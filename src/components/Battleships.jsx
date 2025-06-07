@@ -33,7 +33,7 @@ const BattleShips = () => {
     const [playerStats, setPlayerStats] = useState({});
     const [currentPlayer, setCurrentPlayer] = useState('vitekform');
 
-    // Načtení statistik z localStorage
+    // Načtení statistik z localStorage (protože je to jednoduché řešení pro uložení statistik a je to *relativne* persistentní)
     useEffect(() => {
         const savedStats = localStorage.getItem('battleshipStats');
         if (savedStats) {
@@ -102,6 +102,7 @@ const BattleShips = () => {
         setGameMode('game');
     };
 
+    // Z názvu asi tušíte co to bude dělat :D (započne kompetitivní hru)
     const startCompetitiveGame = (playerBoard) => {
         const config = DIFFICULTY_CONFIGS[gameState.difficulty];
         const ships = gameState.ships;
@@ -139,6 +140,7 @@ const BattleShips = () => {
         setGameMode('competitive');
     };
 
+    // Zapne editor s danou obtížností
     const startEditor = (difficulty) => {
         setGameState({
             mode: 'editor',
@@ -152,6 +154,7 @@ const BattleShips = () => {
         setGameMode('editor');
     };
 
+    // HTML kód pro apku (včetně všech komponent)
     return (
         <div className="app">
             <h1>Námořní bitva</h1>
@@ -229,8 +232,8 @@ const BattleShips = () => {
 
 // Komponenta hlavního menu
 const MainMenu = ({ onStartGame, onStartEditor, onShowStats, currentPlayer, setCurrentPlayer }) => {
-    const [selectedDifficulty, setSelectedDifficulty] = useState('9x9');
-    const [customShips, setCustomShips] = useState(null);
+    const [selectedDifficulty, setSelectedDifficulty] = useState('9x9'); // Výchozí obtížnost
+    const [customShips, setCustomShips] = useState(null); // Defaultem použij well default :D (to co je nadefinované na řádku 20)
 
     return (
         <div className="main-menu">
@@ -291,6 +294,7 @@ const MainMenu = ({ onStartGame, onStartEditor, onShowStats, currentPlayer, setC
 
 // Komponenta pro výběr vlastních lodí
 const CustomShipSelector = ({ difficulty, onShipsChange }) => {
+    // (Overridne to defaultní lodě pro danou obtížnost) (ale musí se to držet v rámci maximálního počtu lodí)
     const [ships, setShips] = useState({ ...DIFFICULTY_CONFIGS[difficulty].ships });
     const maxShips = DIFFICULTY_CONFIGS[difficulty].ships;
 
@@ -319,7 +323,7 @@ const CustomShipSelector = ({ difficulty, onShipsChange }) => {
     );
 };
 
-// Komponenta pro nastavení lodí v kompetitivním módu
+// Komponenta pro nastavení lodí v kompetitivním módu (basically editor pro kompetitivní hru)
 const CompetitiveSetupComponent = ({ gameState, setGameState, onBackToMenu, onStartGame }) => {
     const [selectedShip, setSelectedShip] = useState(null);
     const [shipRotation, setShipRotation] = useState(0);
@@ -344,6 +348,7 @@ const CompetitiveSetupComponent = ({ gameState, setGameState, onBackToMenu, onSt
                 id: gameState.placedShips.length + 1
             });
 
+            // Nastavíme gameState na well nový stav :D (nevím jak jinak bych to okomentoval :D)
             setGameState({
                 ...gameState,
                 playerBoard: newBoard,
@@ -351,12 +356,14 @@ const CompetitiveSetupComponent = ({ gameState, setGameState, onBackToMenu, onSt
                 placedShips: newPlacedShips
             });
 
+            // Pokud už není žádná loď tohoto typu dostupná, zrušíme výběr lodě
             if (newAvailableShips[selectedShip] === 0) {
                 setSelectedShip(null);
             }
         }
     };
 
+    // Tipuju že by to mohlo být jasné, ale pro jistotu: tato funkce odstraní loď z desky a aktualizuje dostupné lodě
     const removeShip = (shipId) => {
         const ship = gameState.placedShips.find(s => s.id === shipId);
         if (!ship) return;
@@ -377,6 +384,8 @@ const CompetitiveSetupComponent = ({ gameState, setGameState, onBackToMenu, onSt
         });
     };
 
+
+    // To co použije totální náhodu a nacpe vám to lodě na desku (pro kompetitivní mód)
     const autoPlaceShips = () => {
         const { board, placedShips } = generatePlayerShipPositions(
             gameState.boardSize,
@@ -391,6 +400,7 @@ const CompetitiveSetupComponent = ({ gameState, setGameState, onBackToMenu, onSt
         });
     };
 
+    // Smaže všechny lodě z desky a nastaví desku na prázdnou (pro kompetitivní mód)
     const clearBoard = () => {
         setGameState({
             ...gameState,
@@ -520,10 +530,12 @@ const SetupBoard = ({ board, size, onCellClick, onShipRemove, selectedShip, ship
         }
     };
 
+    // Když se nám myška posuně z buňky, zrušíme náhled (protože jinak by to za chvíli bylo celé označené :D)
     const handleMouseLeave = () => {
         setHoverPreview(null);
     };
 
+    // Kontrola, zda je buňka součástí náhledu (pro zvýraznění)
     const isHoverCell = (row, col) => {
         if (!hoverPreview) return false;
 
@@ -564,6 +576,7 @@ const SetupBoard = ({ board, size, onCellClick, onShipRemove, selectedShip, ship
 const GameComponent = ({ gameState, setGameState, onBackToMenu, onGameWon }) => {
     const [currentTime, setCurrentTime] = useState(0);
 
+    // Aktualizace času každou sekundu
     useEffect(() => {
         const interval = setInterval(() => {
             setCurrentTime(Math.floor((Date.now() - gameState.startTime) / 1000));
@@ -572,6 +585,7 @@ const GameComponent = ({ gameState, setGameState, onBackToMenu, onGameWon }) => 
         return () => clearInterval(interval);
     }, [gameState.startTime]);
 
+    // Funkce pro zpracování kliknutí na buňku (aneb když někam strílíte)
     const handleCellClick = (row, col) => {
         if (gameState.gameWon || gameState.computerRevealedBoard[row][col] !== 0) return;
 
@@ -639,6 +653,7 @@ const GameComponent = ({ gameState, setGameState, onBackToMenu, onGameWon }) => 
 const CompetitiveComponent = ({ gameState, setGameState, onBackToMenu, onGameWon }) => {
     const [currentTime, setCurrentTime] = useState(0);
 
+    // Už zase updatujeme čas každou sekundu
     useEffect(() => {
         const interval = setInterval(() => {
             setCurrentTime(Math.floor((Date.now() - gameState.startTime) / 1000));
@@ -657,6 +672,7 @@ const CompetitiveComponent = ({ gameState, setGameState, onBackToMenu, onGameWon
         }
     }, [gameState.turn, gameState.gameWon]);
 
+    // Funkce pro zpracování kliknutí na buňku (aneb když hráč střílí)
     const handlePlayerMove = (row, col) => {
         if (gameState.gameWon || gameState.turn !== 'player' || gameState.computerRevealedBoard[row][col] !== 0) return;
 
@@ -667,7 +683,7 @@ const CompetitiveComponent = ({ gameState, setGameState, onBackToMenu, onGameWon
         const newMoves = gameState.moves + 1;
 
         let playerRevealedShipCells = 0;
-        for (let i = 0; i < gameState.boardSize; i++) {
+        for (let i = 0; i < gameState.boardSize; i++) { // PS: než mi odeberete body za to že ty variable nejsou hezky pojmenované, tak bych chtěl vědět jak vy pojmováváte proměnné v cyklu :D
             for (let j = 0; j < gameState.boardSize; j++) {
                 if (newComputerRevealedBoard[i][j] > 0) playerRevealedShipCells++;
             }
@@ -705,6 +721,8 @@ const CompetitiveComponent = ({ gameState, setGameState, onBackToMenu, onGameWon
         });
     };
 
+
+    // Super inteligentní AI tah (to je joke je to vypatlaný jak tágo :D (ale zase to funguje a je to rychlý :D)) (která se snaží najít nejpravděpodobnější cíl)
     const makeAIMove = () => {
         const availableTargets = [];
 
@@ -716,8 +734,10 @@ const CompetitiveComponent = ({ gameState, setGameState, onBackToMenu, onGameWon
             }
         }
 
+        // Pokud nejsou žádné dostupné cíle, skončíme (jak jsme se sem vůbec dostali :D)
         if (availableTargets.length === 0) return;
 
+        // Funkce pro získání cíle na základě inteligentního výběru (zase hrozně chytrá funkce :D)
         let targetCell = getSmartAITarget(gameState, availableTargets);
 
         if (!targetCell) {
@@ -725,12 +745,12 @@ const CompetitiveComponent = ({ gameState, setGameState, onBackToMenu, onGameWon
             targetCell = availableTargets[randomIndex];
         }
 
-        const [row, col] = targetCell;
+        const [row, col] = targetCell; // row je řádek a col je sloupec
         const newPlayerRevealedBoard = [...gameState.playerRevealedBoard];
         const cellValue = gameState.playerGameBoard[row][col];
 
-        newPlayerRevealedBoard[row][col] = cellValue === 0 ? -1 : cellValue;
-        const newComputerMoves = gameState.computerMoves + 1;
+        newPlayerRevealedBoard[row][col] = cellValue === 0 ? -1 : cellValue; // -1 znamená, že to je voda (nebo prázdná buňka)
+        const newComputerMoves = gameState.computerMoves + 1; // Počítač udělal další tah (jak jinak také :D)
 
         let aiRevealedShipCells = 0;
         for (let i = 0; i < gameState.boardSize; i++) {
@@ -739,7 +759,7 @@ const CompetitiveComponent = ({ gameState, setGameState, onBackToMenu, onGameWon
             }
         }
 
-        const aiWon = aiRevealedShipCells === gameState.playerShipCells;
+        const aiWon = aiRevealedShipCells === gameState.playerShipCells; // Pokud AI potopila všechny lodě hráče, tak vyhrála (logic)
 
         if (aiWon) {
             setGameState({
@@ -760,6 +780,7 @@ const CompetitiveComponent = ({ gameState, setGameState, onBackToMenu, onGameWon
         });
     };
 
+    // HTML kód (a komenty tam nebudou ani nejsou protože do HTML psát komentáře je Spain without the S :D)
     return (
         <div className="competitive-container">
             <div className="game-info">
@@ -844,6 +865,7 @@ const EditorComponent = ({ gameState, setGameState, onBackToMenu, onStartGame })
         }
     };
 
+    // Funkce pro odstranění lodě z desky a aktualizaci dostupných lodí
     const removeShip = (shipId) => {
         const ship = gameState.placedShips.find(s => s.id === shipId);
         if (!ship) return;
@@ -864,6 +886,7 @@ const EditorComponent = ({ gameState, setGameState, onBackToMenu, onStartGame })
         });
     };
 
+    // Vyrobí a downloadne soubor s aktuálním stavem editoru
     const saveToFile = () => {
         const content = generateFileContent(gameState);
         const blob = new Blob([content], { type: 'text/plain' });
@@ -874,6 +897,7 @@ const EditorComponent = ({ gameState, setGameState, onBackToMenu, onStartGame })
         a.click();
     };
 
+    // Načte soubor a aktualizuje stav editoru
     const loadFromFile = (event) => {
         const file = event.target.files[0];
         if (!file) return;
@@ -897,6 +921,7 @@ const EditorComponent = ({ gameState, setGameState, onBackToMenu, onStartGame })
         reader.readAsText(file);
     };
 
+    // Spustí hru s aktuální deskou (pro editor)
     const startGameWithCurrentBoard = () => {
         const totalShipCells = gameState.board.flat().filter(cell => cell > 0).length;
 
@@ -1048,6 +1073,7 @@ const createEmptyBoard = (size) => {
     return Array(size).fill(null).map(() => Array(size).fill(0));
 };
 
+// Chcete si někam zastřílet?
 const getCellClass = (revealedCell, gameCell, showShips, isPlayerBoard = false) => {
     if (revealedCell === -1) return 'miss';
     if (revealedCell > 0) return 'hit';
@@ -1055,6 +1081,7 @@ const getCellClass = (revealedCell, gameCell, showShips, isPlayerBoard = false) 
     return 'unrevealed';
 };
 
+// Jakože pokud nechcete vidět jestli jste trefili nebo netrefili, tak je to zbytečný, ale pokud chcete, tak to ukáže co jste trefili nebo netrefili
 const getCellContent = (revealedCell, gameCell, showShips, isPlayerBoard = false) => {
     if (revealedCell === -1) return '💧';
     if (revealedCell > 0) return '💥';
@@ -1062,6 +1089,7 @@ const getCellContent = (revealedCell, gameCell, showShips, isPlayerBoard = false
     return '';
 };
 
+// Hrozně chytrá funkce co vygeneruje posice lodí na desce
 const generateShipPositions = (boardSize, ships) => {
     const board = createEmptyBoard(boardSize);
     let totalCells = 0;
@@ -1093,6 +1121,7 @@ const generateShipPositions = (boardSize, ships) => {
     return { board, totalCells };
 };
 
+// Funkce pro generování pozic lodí pro hráče (pro editor a kompetitivní mód)
 const generatePlayerShipPositions = (boardSize, ships) => {
     const board = createEmptyBoard(boardSize);
     const placedShips = [];
@@ -1130,6 +1159,7 @@ const generatePlayerShipPositions = (boardSize, ships) => {
     return { board, placedShips };
 };
 
+// Totálně super duper chytrá funkce, co najde nejpravděpodobnější cíl pro AI (nebo spíš náhodně vybere buňku, kde ještě nebylo stříleno) (ale snaží se najít buňku, která je nejblíž k nějaké již zasažené buňce)
 const getSmartAITarget = (gameState, availableTargets) => {
     const { playerRevealedBoard, boardSize } = gameState;
 
@@ -1162,6 +1192,7 @@ const getSmartAITarget = (gameState, availableTargets) => {
     return null;
 };
 
+// Funkce pro otočení tvaru lodě podle zadané rotace (0, 90, 180, 270 stupňů)
 const rotateShipShape = (shape, rotation) => {
     let rotated = shape;
 
@@ -1181,6 +1212,7 @@ const rotateShipShape = (shape, rotation) => {
     return rotated;
 };
 
+// Můžete umístit loď na desku? (odpověd zní maybe :D)
 const canPlaceShip = (board, startRow, startCol, shape) => {
     const boardSize = board.length;
 
@@ -1217,6 +1249,7 @@ const canPlaceShip = (board, startRow, startCol, shape) => {
     return true;
 };
 
+// Funkce pro umístění lodě na desku
 const placeShipOnBoard = (board, startRow, startCol, shape, shipId) => {
     for (let r = 0; r < shape.length; r++) {
         for (let c = 0; c < shape[0].length; c++) {
@@ -1227,6 +1260,7 @@ const placeShipOnBoard = (board, startRow, startCol, shape, shipId) => {
     }
 };
 
+// Generuje obsah souboru pro uložení stavu editoru
 const generateFileContent = (gameState) => {
     const { boardSize, ships } = gameState;
     const shipCounts = Object.values(ships).join(';');
@@ -1239,6 +1273,7 @@ const generateFileContent = (gameState) => {
     return [header, ...boardLines].join('\n');
 };
 
+// Funkce pro zpracování obsahu souboru a jeho převod na stav editoru
 const parseFileContent = (content) => {
     const lines = content.trim().split('\n');
     const header = lines[0].split(';');
