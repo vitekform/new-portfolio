@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
+    <data-source source="LOCAL" name="ce2c936385581e571d186d6466064f7398b111824a7314fcf10da20dfafd0e32" uuid="73f5e51d-339e-4236-8130-38670fe04bae">
+      <driver-ref>sqlite.xerial</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
+      <jdbc-url>jdbc:sqlite:C:\Users\vitek\WebstormProjects\new-portfolio\.wrangler\state\v3\d1\miniflare-D1DatabaseObject\ce2c936385581e571d186d6466064f7398b111824a7314fcf10da20dfafd0e32.sqlite</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
+  </component>
+</project>
