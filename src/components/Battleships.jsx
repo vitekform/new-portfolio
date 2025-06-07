@@ -602,7 +602,7 @@ const GameComponent = ({ gameState, setGameState, onBackToMenu, onGameWon }) => 
             }
         }
 
-        const gameWon = revealedShipCells === gameState.totalShipCells;
+        const gameWon = revealedShipCells >= gameState.totalShipCells;
 
         if (gameWon) {
             const gameTime = Date.now() - gameState.startTime;
