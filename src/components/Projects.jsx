@@ -28,12 +28,12 @@ const Projects = () => {
             },
             {
               id: 2,
-              name: 'Task Management App',
-              description: 'A productivity application for managing tasks, projects, and deadlines with team collaboration features.',
+              name: 'Ships (the game you played in school on paper)',
+              description: 'A web-based implementation of the classic game of Battleships. (And everything is in Czech)',
               image: 'https://via.placeholder.com/300x200?text=Task+Manager',
-              skills: ['React', 'Redux', 'Firebase', 'Material-UI'],
-              github: 'https://github.com/username/task-manager',
-              demo: 'https://task-manager-demo.com'
+              skills: ['React', 'Brain', 'Math', 'Luck'],
+              github: 'https://github.com/vitekform/new-portfolio/blob/master/src/components/Battleships.jsx',
+              demo: 'https://ganamaga.me/battleships'
             }
           ];
           
