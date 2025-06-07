@@ -12,8 +12,8 @@ import Achievements from './manage/Achievements';
 import AchievementEditor from './manage/AchievementEditor';
 import ServiceRequestReview from './manage/ServiceRequestReview';
 import TicketManagement from './manage/TicketManagement';
-import '../../App.css';
-import '../../index.css';
+import '../App.css';
+import '../index.css';
 
 function Manage() {
   const [loading, setLoading] = useState(true);
