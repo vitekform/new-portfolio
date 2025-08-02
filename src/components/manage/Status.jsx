@@ -176,7 +176,7 @@ function Status() {
           <StatusIcon>
             <FaDesktop />
           </StatusIcon>
-          <StatusInfo>
+          <StatusInfo status={panelOnlineStatus}>
             <StatusTitle>Service Panel</StatusTitle>
             {loading ? (
                 <StatusValue>Checking...</StatusValue>
@@ -195,7 +195,7 @@ function Status() {
           <StatusIcon>
             <FaDatabase />
           </StatusIcon>
-          <StatusInfo>
+          <StatusInfo status={node1LatencyI}>
             <StatusTitle>Node 1 Latency</StatusTitle>
             {loading ? (
                 <StatusValue>Measuring...</StatusValue>
