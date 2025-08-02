@@ -6,6 +6,8 @@ function Status() {
   const [loading, setLoading] = useState(true);
   const [apiLatency, setApiLatency] = useState(null);
   const [dbLatency, setDbLatency] = useState(null);
+  const [isPanelOnline, setIsPanelOnline] = useState(false);
+  const [node1Latency, setNode1Latency] = useState(null);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -17,16 +19,16 @@ function Status() {
     try {
       // Measure frontend to API latency
       const apiStartTime = performance.now();
-      const apiResponse = await fetch('/api/manage/status', {
+      let apiResponse = await fetch('/api/manage/status', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'checkLatency',
+          action: 'checkLatencyDB',
         }),
       });
-      
+
       const apiEndTime = performance.now();
       const apiLatencyValue = Math.round(apiEndTime - apiStartTime);
       setApiLatency(apiLatencyValue);
@@ -35,13 +37,52 @@ function Status() {
         throw new Error('Failed to connect to API');
       }
       
-      const data = await apiResponse.json();
+      let data = await apiResponse.json();
       
       if (data.success) {
         setDbLatency(data.dbLatency);
       } else {
         setError(data.message || 'Failed to check database latency');
         setDbLatency(null);
+      }
+
+      // Check if panel is online
+      apiResponse = await fetch('/api/manage/status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'checkStatusPanel',
+        })
+      });
+
+      data = await apiResponse.json();
+
+      if (data.success) {
+        setIsPanelOnline(data.online);
+      }
+      else {
+        setIsPanelOnline(false);
+      }
+
+      // Get latency of node 1
+      apiResponse = await fetch('/api/manage/status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'checkLatencyNode1',
+        })
+      });
+
+      data = await apiResponse.json();
+      if (data.success) {
+        setNode1Latency(data.latency);
+      }
+      else {
+        setNode1Latency(null);
       }
     } catch (err) {
       console.error('Error checking latency:', err);
@@ -67,6 +108,14 @@ function Status() {
 
   const apiStatus = getLatencyStatus(apiLatency);
   const dbStatus = getLatencyStatus(dbLatency);
+  const node1LatencyI = getLatencyStatus(node1Latency);
+  let panelOnlineStatus = 'unknown';
+  if (isPanelOnline) {
+    panelOnlineStatus = 'good';
+  }
+  else {
+    panelOnlineStatus = 'poor';
+  }
   // No need to check chatbot status anymore
 
   return (
@@ -126,25 +175,35 @@ function Status() {
           </StatusIcon>
           <StatusInfo>
             <StatusTitle>Service Panel</StatusTitle>
-            <StatusValue>
-              <a href="https://panel.ganamaga.me" target="_blank" rel="noopener noreferrer">
-                panel.ganamaga.me
-              </a>
-            </StatusValue>
+            {loading ? (
+                <StatusValue>Checking...</StatusValue>
+            ) : (
+                <>
+                  <StatusValue>
+                    {isPanelOnline ? `Online` : 'Offline'}
+                  </StatusValue>
+                  <StatusIndicator status={panelOnlineStatus} />
+                </>
+            )}
           </StatusInfo>
         </StatusCard>
 
         <StatusCard>
           <StatusIcon>
-            <FaNetworkWired />
+            <FaDatabase />
           </StatusIcon>
           <StatusInfo>
-            <StatusTitle>Node CZ1</StatusTitle>
-            <StatusValue>
-              <a href="https://cz1.node.ganamaga.me" target="_blank" rel="noopener noreferrer">
-                cz1.node.ganamaga.me
-              </a>
-            </StatusValue>
+            <StatusTitle>Node 1 Latency</StatusTitle>
+            {loading ? (
+                <StatusValue>Measuring...</StatusValue>
+            ) : (
+                <>
+                  <StatusValue>
+                    {node1Latency !== null ? `${node1Latency} ms` : 'Failed to measure'}
+                  </StatusValue>
+                  <StatusIndicator status={node1LatencyI} />
+                </>
+            )}
           </StatusInfo>
         </StatusCard>
       </StatusGrid>

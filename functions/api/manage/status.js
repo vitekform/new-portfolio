@@ -5,7 +5,7 @@ export async function onRequest(context) {
     const requestData = await request.json();
     const action = requestData.action;
 
-    if (action === 'checkLatency') {
+    if (action === 'checkLatencyDB') {
         try {
             // Measure database latency
             const dbStartTime = performance.now();
@@ -19,7 +19,7 @@ export async function onRequest(context) {
             return new Response(JSON.stringify({
                 success: true,
                 message: 'Latency check successful',
-                dbLatency: dbLatency
+                latency: dbLatency
             }), {
                 status: 200,
                 headers: { 'Content-Type': 'application/json' }
@@ -33,6 +33,44 @@ export async function onRequest(context) {
                 status: 500,
                 headers: { 'Content-Type': 'application/json' }
             });
+        }
+    } else if (action === "checkStatusPanel") {
+        try {
+            fetch("https://panel.ganamaga.me").then(response => {
+                return new Response(JSON.stringify({
+                    success: true,
+                    message: "Panel online!",
+                    online: true
+                }))
+            });
+        }   catch (e) {
+            // Just in case
+            console.error(e);
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'Failed to check status panel (most likely because panel is offline)',
+            online: false}))
+        }
+    } else if (action === "checkLatencyNode1") {
+        try {
+            const startTime = performance.now();
+            // Perform fetch to cz1.node.ganamaga.me
+            fetch("https://panel.ganamaga.me").then(response => {
+
+            });
+            const endTime = performance.now();
+            const latency = Math.round(endTime - startTime);
+            return new Response(JSON.stringify({
+                success: true,
+                message: "Node online with " + latency + "ms of latency!",
+                latency: latency
+            }));
+        }   catch (e) {
+            console.error(e);
+            return new Response(JSON.stringify({
+                success: false,
+                message: 'Failed to check status of node',
+            }))
         }
     } else {
         return new Response(JSON.stringify({
