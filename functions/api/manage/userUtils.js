@@ -653,52 +653,51 @@ export async function onRequest(context) {
 
                 // Delete related records first to avoid foreign key constraint errors
                 try {
-                    // Begin transaction
-                    await env.DB.prepare('BEGIN TRANSACTION').run();
-                    
-                    // Delete user_secret_settings records
-                    await env.DB.prepare(`
+                    // Prepare all statements for batch execution
+                    const deleteUserSecretSettings = env.DB.prepare(`
                         DELETE FROM user_secret_settings WHERE user_id = ?1
-                    `).bind(parseInt(targetUserId)).run();
+                    `).bind(parseInt(targetUserId));
                     
-                    // Delete user_easter_eggs records
-                    await env.DB.prepare(`
+                    const deleteUserEasterEggs = env.DB.prepare(`
                         DELETE FROM user_easter_eggs WHERE user_id = ?1
-                    `).bind(parseInt(targetUserId)).run();
+                    `).bind(parseInt(targetUserId));
                     
-                    // Delete user_achievements records
-                    await env.DB.prepare(`
+                    const deleteUserAchievements = env.DB.prepare(`
                         DELETE FROM user_achievements WHERE user_id = ?1
-                    `).bind(parseInt(targetUserId)).run();
+                    `).bind(parseInt(targetUserId));
                     
-                    // Delete ticket_messages records for tickets created by this user
-                    await env.DB.prepare(`
+                    const deleteTicketMessagesForUserTickets = env.DB.prepare(`
                         DELETE FROM ticket_messages 
                         WHERE ticket_id IN (SELECT id FROM tickets WHERE user_id = ?1)
-                    `).bind(parseInt(targetUserId)).run();
+                    `).bind(parseInt(targetUserId));
                     
-                    // Delete ticket_messages sent by this user
-                    await env.DB.prepare(`
+                    const deleteTicketMessagesSentByUser = env.DB.prepare(`
                         DELETE FROM ticket_messages WHERE sender_id = ?1
-                    `).bind(parseInt(targetUserId)).run();
+                    `).bind(parseInt(targetUserId));
                     
-                    // Delete tickets records
-                    await env.DB.prepare(`
+                    const deleteTickets = env.DB.prepare(`
                         DELETE FROM tickets WHERE user_id = ?1
-                    `).bind(parseInt(targetUserId)).run();
+                    `).bind(parseInt(targetUserId));
                     
-                    // Delete service_requests records
-                    await env.DB.prepare(`
+                    const deleteServiceRequests = env.DB.prepare(`
                         DELETE FROM service_requests WHERE user_id = ?1
-                    `).bind(parseInt(targetUserId)).run();
+                    `).bind(parseInt(targetUserId));
                     
-                    // Finally delete the user
-                    await env.DB.prepare(`
+                    const deleteUser = env.DB.prepare(`
                         DELETE FROM users WHERE id = ?1
-                    `).bind(parseInt(targetUserId)).run();
+                    `).bind(parseInt(targetUserId));
                     
-                    // Commit transaction
-                    await env.DB.prepare('COMMIT').run();
+                    // Execute all statements in a batch (atomic operation)
+                    await env.DB.batch([
+                        deleteUserSecretSettings,
+                        deleteUserEasterEggs,
+                        deleteUserAchievements,
+                        deleteTicketMessagesForUserTickets,
+                        deleteTicketMessagesSentByUser,
+                        deleteTickets,
+                        deleteServiceRequests,
+                        deleteUser
+                    ]);
                     
                     return new Response(JSON.stringify({
                         success: true,
@@ -707,11 +706,9 @@ export async function onRequest(context) {
                         status: 200,
                         headers: { 'Content-Type': 'application/json' }
                     });
-                } catch (transactionError) {
-                    // Rollback transaction on error
-                    await env.DB.prepare('ROLLBACK').run();
-                    console.error('Transaction error:', transactionError);
-                    throw transactionError;
+                } catch (error) {
+                    console.error('Error deleting user:', error);
+                    throw error;
                 }
             } catch (dbError) {
                 console.error('Database operation error:', dbError);
