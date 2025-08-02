@@ -37,7 +37,9 @@ function Status() {
         throw new Error('Failed to connect to API');
       }
       
-      let data = await apiResponse.json();
+      let data = await apiResponse;
+      console.log(data);
+      data = data.json();
       
       if (data.success) {
         setDbLatency(data.dbLatency);
@@ -57,7 +59,9 @@ function Status() {
         })
       });
 
-      data = await apiResponse.json();
+      data = await apiResponse;
+      console.log(data);
+      data = data.json();
 
       if (data.success) {
         setIsPanelOnline(data.online);
@@ -77,7 +81,9 @@ function Status() {
         })
       });
 
-      data = await apiResponse.json();
+      data = await apiResponse;
+      console.log(data);
+      data = data.json();
       if (data.success) {
         setNode1Latency(data.latency);
       }
