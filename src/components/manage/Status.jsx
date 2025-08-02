@@ -41,7 +41,7 @@ function Status() {
       console.log(data);
 
       if (data.success) {
-        setDbLatency(data.dbLatency);
+        setDbLatency(data.latency);
       } else {
         setError(data.message || 'Failed to check database latency');
         setDbLatency(null);
