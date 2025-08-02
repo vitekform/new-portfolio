@@ -41,7 +41,7 @@ export async function onRequest(context) {
                     success: true,
                     message: "Panel online!",
                     online: true
-                }))
+                }));
             });
         }   catch (e) {
             // Just in case
@@ -49,15 +49,14 @@ export async function onRequest(context) {
             return new Response(JSON.stringify({
                 success: false,
                 message: 'Failed to check status panel (most likely because panel is offline)',
-            online: false}))
+                online: false
+            }));
         }
     } else if (action === "checkLatencyNode1") {
         try {
             const startTime = performance.now();
             // Perform fetch to cz1.node.ganamaga.me
-            fetch("https://panel.ganamaga.me").then(response => {
-
-            });
+            fetch("https://panel.ganamaga.me").then(response => {});
             const endTime = performance.now();
             const latency = Math.round(endTime - startTime);
             return new Response(JSON.stringify({
@@ -70,7 +69,7 @@ export async function onRequest(context) {
             return new Response(JSON.stringify({
                 success: false,
                 message: 'Failed to check status of node',
-            }))
+            }));
         }
     } else {
         return new Response(JSON.stringify({
