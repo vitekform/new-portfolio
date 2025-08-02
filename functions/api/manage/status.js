@@ -55,7 +55,7 @@ export async function onRequest(context) {
         try {
             const startTime = performance.now();
             // Perform fetch to cz1.node.ganamaga.me
-            fetch("https://panel.ganamaga.me").then(response => {});
+            await fetch("https://panel.ganamaga.me").then(response => {});
             const endTime = performance.now();
             const latency = Math.round(endTime - startTime);
             return new Response(JSON.stringify({
