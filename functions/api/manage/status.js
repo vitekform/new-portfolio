@@ -36,13 +36,12 @@ export async function onRequest(context) {
         }
     } else if (action === "checkStatusPanel") {
         try {
-            fetch("https://panel.ganamaga.me").then(response => {
-                return new Response(JSON.stringify({
-                    success: true,
-                    message: "Panel online!",
-                    online: true
-                }));
-            });
+            fetch("https://panel.ganamaga.me").then(response => {});
+            return new Response(JSON.stringify({
+                success: true,
+                message: "Panel online!",
+                online: true
+            }));
         }   catch (e) {
             // Just in case
             console.error(e);
