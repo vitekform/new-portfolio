@@ -1,7 +1,6 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import sgMail from '@sendgrid/mail';
-import { awardAchievement } from './achievementUtils.js';
 
 export async function onRequest(context) {
     // Parse the request body
@@ -70,14 +69,6 @@ export async function onRequest(context) {
             `).bind(username, email, password_hashed, token, "unverified").run();
 
             const newUserId = insertResult.meta.last_row_id;
-
-            // Award the "Big Mistake" achievement
-            try {
-                await awardAchievement(newUserId, 'BIG_MISTAKE', env);
-            } catch (achievementError) {
-                console.error('Error awarding achievement:', achievementError);
-                // Continue with registration even if awarding achievement fails
-            }
 
             // Send welcome email
             try {
@@ -660,18 +651,68 @@ export async function onRequest(context) {
                     });
                 }
 
-                // Delete the user
-                await env.DB.prepare(`
-                    DELETE FROM users WHERE id = ?1
-                `).bind(parseInt(targetUserId)).run();
-
-                return new Response(JSON.stringify({
-                    success: true,
-                    message: 'User deleted successfully'
-                }), {
-                    status: 200,
-                    headers: { 'Content-Type': 'application/json' }
-                });
+                // Delete related records first to avoid foreign key constraint errors
+                try {
+                    // Begin transaction
+                    await env.DB.prepare('BEGIN TRANSACTION').run();
+                    
+                    // Delete user_secret_settings records
+                    await env.DB.prepare(`
+                        DELETE FROM user_secret_settings WHERE user_id = ?1
+                    `).bind(parseInt(targetUserId)).run();
+                    
+                    // Delete user_easter_eggs records
+                    await env.DB.prepare(`
+                        DELETE FROM user_easter_eggs WHERE user_id = ?1
+                    `).bind(parseInt(targetUserId)).run();
+                    
+                    // Delete user_achievements records
+                    await env.DB.prepare(`
+                        DELETE FROM user_achievements WHERE user_id = ?1
+                    `).bind(parseInt(targetUserId)).run();
+                    
+                    // Delete ticket_messages records for tickets created by this user
+                    await env.DB.prepare(`
+                        DELETE FROM ticket_messages 
+                        WHERE ticket_id IN (SELECT id FROM tickets WHERE user_id = ?1)
+                    `).bind(parseInt(targetUserId)).run();
+                    
+                    // Delete ticket_messages sent by this user
+                    await env.DB.prepare(`
+                        DELETE FROM ticket_messages WHERE sender_id = ?1
+                    `).bind(parseInt(targetUserId)).run();
+                    
+                    // Delete tickets records
+                    await env.DB.prepare(`
+                        DELETE FROM tickets WHERE user_id = ?1
+                    `).bind(parseInt(targetUserId)).run();
+                    
+                    // Delete service_requests records
+                    await env.DB.prepare(`
+                        DELETE FROM service_requests WHERE user_id = ?1
+                    `).bind(parseInt(targetUserId)).run();
+                    
+                    // Finally delete the user
+                    await env.DB.prepare(`
+                        DELETE FROM users WHERE id = ?1
+                    `).bind(parseInt(targetUserId)).run();
+                    
+                    // Commit transaction
+                    await env.DB.prepare('COMMIT').run();
+                    
+                    return new Response(JSON.stringify({
+                        success: true,
+                        message: 'User deleted successfully'
+                    }), {
+                        status: 200,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                } catch (transactionError) {
+                    // Rollback transaction on error
+                    await env.DB.prepare('ROLLBACK').run();
+                    console.error('Transaction error:', transactionError);
+                    throw transactionError;
+                }
             } catch (dbError) {
                 console.error('Database operation error:', dbError);
                 throw dbError; // Re-throw to be caught by the outer catch block
@@ -825,16 +866,6 @@ export async function onRequest(context) {
                         await env.DB.prepare(`
                             UPDATE users SET theme_preferences = ?1 WHERE id = ?2
                         `).bind(JSON.stringify(updatedPreferences), parseInt(userId)).run();
-
-                        // Award the "Master of the Dark Arts" achievement if dark mode is enabled
-                        if (value === 'dark') {
-                            try {
-                                await awardAchievement(parseInt(userId), 'MASTER_OF_DARK_ARTS', env);
-                            } catch (achievementError) {
-                                console.error('Error awarding achievement:', achievementError);
-                                // Continue even if awarding achievement fails
-                            }
-                        }
                     } catch (err) {
                         console.error('Error updating theme preference:', err);
                         // If there's an error with the theme column, just continue
@@ -1436,14 +1467,6 @@ export async function onRequest(context) {
                 await env.DB.prepare(`
                     UPDATE users SET role = 'user', verification_tokens = ?1 WHERE id = ?2
                 `).bind(JSON.stringify(updatedVerificationTokens), matchedUser.id).run();
-
-                // Award the "Verify Your Email" achievement
-                try {
-                    await awardAchievement(matchedUser.id, 'VERIFY_EMAIL', env);
-                } catch (achievementError) {
-                    console.error('Error awarding achievement:', achievementError);
-                    // Continue even if awarding achievement fails
-                }
 
                 return new Response(JSON.stringify({
                     success: true,
