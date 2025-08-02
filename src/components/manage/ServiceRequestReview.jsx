@@ -130,7 +130,12 @@ function ServiceRequestReview() {
           userId,
           token,
           serviceRequestId: requestId,
-          title: `Support Ticket #${requestId}`
+          title: `Support Ticket #${requestId}`,
+          participants: {
+            includeRequester: true,
+            includeAdmins: true,
+            includeOwner: true
+          }
         }),
       });
 

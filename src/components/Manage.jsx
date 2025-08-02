@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import styled from 'styled-components';
-import { FaUsers, FaSignOutAlt, FaSpinner, FaChartLine, FaServer, FaCog, FaTrophy, FaEdit, FaClipboardCheck, FaTicketAlt } from 'react-icons/fa';
+import { FaUsers, FaSignOutAlt, FaSpinner, FaChartLine, FaServer, FaCog, FaClipboardCheck, FaTicketAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from './common/ThemeToggle';
 import UserManagement from './manage/UserManagement';
 import Status from './manage/Status';
 import Services from './manage/Services';
 import AccountSettings from './manage/AccountSettings';
-import Achievements from './manage/Achievements';
-import AchievementEditor from './manage/AchievementEditor';
 import ServiceRequestReview from './manage/ServiceRequestReview';
 import TicketManagement from './manage/TicketManagement';
 import '../App.css';
@@ -104,10 +101,7 @@ function Manage() {
 
   return (
     <ManageContainer>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+      <div
         className="container"
         style={{ width: '100%', maxWidth: '2000px', margin: '0 auto' }}
       >
@@ -153,16 +147,6 @@ function Manage() {
               </SidebarItem>
             )}
 
-            {/* Only show Achievement Editor to admin and root users */}
-            {(userData?.role === 'admin' || userData?.role === 'root') && (
-              <SidebarItem 
-                active={activeSection === 'achievement-editor'} 
-                onClick={() => setActiveSection('achievement-editor')}
-              >
-                <FaEdit /> Achievement Editor
-              </SidebarItem>
-            )}
-
             {/* Only show Service Request Review to admin and root users */}
             {(userData?.role === 'admin' || userData?.role === 'root') && (
               <SidebarItem 
@@ -188,13 +172,6 @@ function Manage() {
               onClick={() => setActiveSection('account')}
             >
               <FaCog /> Account Settings
-            </SidebarItem>
-
-            <SidebarItem 
-              active={activeSection === 'achievements'} 
-              onClick={() => setActiveSection('achievements')}
-            >
-              <FaTrophy /> Achievements
             </SidebarItem>
 
             <LogoutButton onClick={handleLogout}>
@@ -235,18 +212,6 @@ function Manage() {
               </AccountSettingsSection>
             )}
 
-            {activeSection === 'achievements' && (
-              <AchievementsSection>
-                <Achievements />
-              </AchievementsSection>
-            )}
-
-            {activeSection === 'achievement-editor' && (userData?.role === 'admin' || userData?.role === 'root') && (
-              <AchievementEditorSection>
-                <AchievementEditor />
-              </AchievementEditorSection>
-            )}
-
             {activeSection === 'service-requests' && (userData?.role === 'admin' || userData?.role === 'root') && (
               <ServiceRequestsSection>
                 <ServiceRequestReview />
@@ -260,7 +225,7 @@ function Manage() {
             )}
           </ContentArea>
         </DashboardLayout>
-      </motion.div>
+      </div>
     </ManageContainer>
   );
 }
@@ -417,20 +382,6 @@ const ServicesSection = styled.section`
 `;
 
 const AccountSettingsSection = styled.section`
-  h2 {
-    margin-top: 0;
-    color: var(--text-primary);
-  }
-`;
-
-const AchievementsSection = styled.section`
-  h2 {
-    margin-top: 0;
-    color: var(--text-primary);
-  }
-`;
-
-const AchievementEditorSection = styled.section`
   h2 {
     margin-top: 0;
     color: var(--text-primary);
