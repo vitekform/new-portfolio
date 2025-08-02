@@ -653,19 +653,6 @@ export async function onRequest(context) {
 
                 // Delete related records first to avoid foreign key constraint errors
                 try {
-                    // Prepare all statements for batch execution
-                    const deleteUserSecretSettings = env.DB.prepare(`
-                        DELETE FROM user_secret_settings WHERE user_id = ?1
-                    `).bind(parseInt(targetUserId));
-                    
-                    const deleteUserEasterEggs = env.DB.prepare(`
-                        DELETE FROM user_easter_eggs WHERE user_id = ?1
-                    `).bind(parseInt(targetUserId));
-                    
-                    const deleteUserAchievements = env.DB.prepare(`
-                        DELETE FROM user_achievements WHERE user_id = ?1
-                    `).bind(parseInt(targetUserId));
-                    
                     const deleteTicketMessagesForUserTickets = env.DB.prepare(`
                         DELETE FROM ticket_messages 
                         WHERE ticket_id IN (SELECT id FROM tickets WHERE user_id = ?1)
@@ -689,9 +676,6 @@ export async function onRequest(context) {
                     
                     // Execute all statements in a batch (atomic operation)
                     await env.DB.batch([
-                        deleteUserSecretSettings,
-                        deleteUserEasterEggs,
-                        deleteUserAchievements,
                         deleteTicketMessagesForUserTickets,
                         deleteTicketMessagesSentByUser,
                         deleteTickets,
@@ -1481,84 +1465,6 @@ export async function onRequest(context) {
             return new Response(JSON.stringify({
                 success: false,
                 message: 'An error occurred while verifying email'
-            }), {
-                status: 500,
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    }
-
-    // Handle getUserAchievements action
-    else if (action === 'getUserAchievements') {
-        try {
-            const userId = requestData.userId;
-            const token = requestData.token;
-
-            // Validate input
-            if (!userId || !token) {
-                return new Response(JSON.stringify({
-                    success: false,
-                    message: 'Missing required parameters'
-                }), {
-                    status: 400,
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-
-            // First check if user exists and token is valid
-            const user = await env.DB.prepare(`
-                SELECT id FROM users WHERE id = ?1 AND token = ?2 LIMIT 1
-            `).bind(parseInt(userId), token).first();
-
-            // If no user found or token doesn't match
-            if (!user) {
-                return new Response(JSON.stringify({
-                    success: false,
-                    message: 'Invalid user ID or token'
-                }), {
-                    status: 401,
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-
-            // Get user achievements with achievement details
-            const achievements = await env.DB.prepare(`
-                SELECT ua.*, a.* 
-                FROM user_achievements ua 
-                JOIN achievements a ON ua.achievement_id = a.id 
-                WHERE ua.user_id = ?1
-            `).bind(parseInt(userId)).all();
-
-            // Get user easter eggs with easter egg details
-            const easterEggs = await env.DB.prepare(`
-                SELECT uee.*, ee.* 
-                FROM user_easter_eggs uee 
-                JOIN easter_eggs ee ON uee.easter_egg_id = ee.id 
-                WHERE uee.user_id = ?1
-            `).bind(parseInt(userId)).all();
-
-            // Get user secret settings with secret setting details
-            const secretSettings = await env.DB.prepare(`
-                SELECT uss.*, ss.* 
-                FROM user_secret_settings uss 
-                JOIN secret_settings ss ON uss.secret_setting_id = ss.id 
-                WHERE uss.user_id = ?1
-            `).bind(parseInt(userId)).all();
-
-            return new Response(JSON.stringify({
-                success: true,
-                achievements: achievements.results,
-                easterEggs: easterEggs.results,
-                secretSettings: secretSettings.results
-            }), {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' }
-            });
-        } catch (error) {
-            console.error('Get user achievements error:', error);
-            return new Response(JSON.stringify({
-                success: false,
-                message: 'An error occurred while fetching user achievements'
             }), {
                 status: 500,
                 headers: { 'Content-Type': 'application/json' }
