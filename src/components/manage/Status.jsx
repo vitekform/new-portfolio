@@ -38,7 +38,7 @@ function Status() {
       }
       
       let data = await apiResponse;
-      console.log(data);
+      console.log(data.json());
       data = data.json();
       
       if (data.success) {
@@ -60,7 +60,7 @@ function Status() {
       });
 
       data = await apiResponse;
-      console.log(data);
+      console.log(data.json());
       data = data.json();
 
       if (data.success) {
@@ -82,7 +82,7 @@ function Status() {
       });
 
       data = await apiResponse;
-      console.log(data);
+      console.log(data.json());
       data = data.json();
       if (data.success) {
         setNode1Latency(data.latency);
