@@ -157,15 +157,13 @@ function Manage() {
               </SidebarItem>
             )}
 
-            {/* Only show Ticket Management to admin and root users */}
-            {(userData?.role === 'admin' || userData?.role === 'root') && (
-              <SidebarItem 
-                active={activeSection === 'tickets'} 
-                onClick={() => setActiveSection('tickets')}
-              >
-                <FaTicketAlt /> Ticket System
-              </SidebarItem>
-            )}
+            {/* Show Ticket Management to all users */}
+            <SidebarItem 
+              active={activeSection === 'tickets'} 
+              onClick={() => setActiveSection('tickets')}
+            >
+              <FaTicketAlt /> Ticket System
+            </SidebarItem>
 
             <SidebarItem 
               active={activeSection === 'account'} 
@@ -218,7 +216,7 @@ function Manage() {
               </ServiceRequestsSection>
             )}
 
-            {activeSection === 'tickets' && (userData?.role === 'admin' || userData?.role === 'root') && (
+            {activeSection === 'tickets' && (
               <TicketsSection>
                 <TicketManagement />
               </TicketsSection>
