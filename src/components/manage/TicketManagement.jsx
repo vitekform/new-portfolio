@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { FaTicketAlt, FaSpinner, FaFilter, FaUser, FaCalendarAlt, FaComment, FaExclamationCircle, FaCheckCircle, FaArrowRight } from 'react-icons/fa';
+import { FaTicketAlt, FaSpinner, FaFilter, FaUser, FaCalendarAlt, FaComment, FaExclamationCircle, FaCheckCircle, FaArrowRight, FaPlus } from 'react-icons/fa';
 import TicketChat from './TicketChat';
 
 function TicketManagement() {
@@ -11,6 +11,11 @@ function TicketManagement() {
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'open', 'closed'
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [showChat, setShowChat] = useState(false);
+  const [showCreateTicketModal, setShowCreateTicketModal] = useState(false);
+  const [serviceRequests, setServiceRequests] = useState([]);
+  const [loadingServiceRequests, setLoadingServiceRequests] = useState(false);
+  const [selectedServiceRequest, setSelectedServiceRequest] = useState(null);
+  const [creatingTicket, setCreatingTicket] = useState(false);
 
   useEffect(() => {
     fetchTickets();
@@ -69,6 +74,107 @@ function TicketManagement() {
     // Refresh tickets after closing chat to get updated data
     fetchTickets();
   };
+  
+  const fetchServiceRequests = async () => {
+    setLoadingServiceRequests(true);
+    setError('');
+    
+    try {
+      const userId = localStorage.getItem('userId');
+      const token = localStorage.getItem('token');
+      
+      if (!userId || !token) {
+        setError('Authentication required');
+        setLoadingServiceRequests(false);
+        return;
+      }
+      
+      const response = await fetch('/api/manage/services', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'getServiceRequests',
+          userId,
+          token,
+          status: 'approved' // Only get approved service requests
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Filter out service requests that already have tickets
+        const availableRequests = data.serviceRequests.filter(request => !request.ticket);
+        setServiceRequests(availableRequests);
+      } else {
+        setError(data.message || 'Failed to fetch service requests');
+      }
+    } catch (err) {
+      console.error('Error fetching service requests:', err);
+      setError('Failed to fetch service requests. Please try again.');
+    } finally {
+      setLoadingServiceRequests(false);
+    }
+  };
+  
+  const handleCreateTicket = async () => {
+    if (!selectedServiceRequest) {
+      setError('Please select a service request');
+      return;
+    }
+    
+    setCreatingTicket(true);
+    setError('');
+    setSuccess('');
+    
+    try {
+      const userId = localStorage.getItem('userId');
+      const token = localStorage.getItem('token');
+      
+      if (!userId || !token) {
+        setError('Authentication required');
+        setCreatingTicket(false);
+        return;
+      }
+      
+      const response = await fetch('/api/manage/ticketUtils', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'createTicket',
+          userId,
+          token,
+          serviceRequestId: selectedServiceRequest.id,
+          title: `Support Ticket for ${selectedServiceRequest.service?.name || 'Service'}`
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setSuccess('Ticket created successfully');
+        setShowCreateTicketModal(false);
+        setSelectedServiceRequest(null);
+        fetchTickets(); // Refresh the tickets list
+      } else {
+        setError(data.message || 'Failed to create ticket');
+      }
+    } catch (err) {
+      console.error('Error creating ticket:', err);
+      setError('Failed to create ticket. Please try again.');
+    } finally {
+      setCreatingTicket(false);
+    }
+  };
+  
+  const openCreateTicketModal = () => {
+    fetchServiceRequests();
+    setShowCreateTicketModal(true);
+  };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -99,23 +205,88 @@ function TicketManagement() {
     <TicketContainer>
       <TicketHeader>
         <h2>Ticket Management</h2>
-        <FilterContainer>
-          <FilterLabel>
-            <FaFilter /> Filter:
-          </FilterLabel>
-          <FilterSelect 
-            value={statusFilter} 
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="all">All Tickets</option>
-            <option value="open">Open</option>
-            <option value="closed">Closed</option>
-          </FilterSelect>
-        </FilterContainer>
+        <HeaderActions>
+          <AddTicketButton onClick={openCreateTicketModal}>
+            <FaPlus /> Create Ticket
+          </AddTicketButton>
+          <FilterContainer>
+            <FilterLabel>
+              <FaFilter /> Filter:
+            </FilterLabel>
+            <FilterSelect 
+              value={statusFilter} 
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">All Tickets</option>
+              <option value="open">Open</option>
+              <option value="closed">Closed</option>
+            </FilterSelect>
+          </FilterContainer>
+        </HeaderActions>
       </TicketHeader>
 
       {error && <ErrorMessage>{error}</ErrorMessage>}
       {success && <SuccessMessage>{success}</SuccessMessage>}
+      
+      {showCreateTicketModal && (
+        <Modal>
+          <ModalContent>
+            <ModalHeader>
+              <h3>Create New Ticket</h3>
+              <CloseButton onClick={() => setShowCreateTicketModal(false)}>×</CloseButton>
+            </ModalHeader>
+            
+            <ModalBody>
+              {loadingServiceRequests ? (
+                <LoadingWrapper>
+                  <FaSpinner className="spinner" />
+                  <p>Loading service requests...</p>
+                </LoadingWrapper>
+              ) : serviceRequests.length === 0 ? (
+                <EmptyState>
+                  No approved service requests available. Please submit a service request first.
+                </EmptyState>
+              ) : (
+                <>
+                  <p>Select a service request to create a ticket for:</p>
+                  <ServiceRequestList>
+                    {serviceRequests.map(request => (
+                      <ServiceRequestItem 
+                        key={request.id}
+                        selected={selectedServiceRequest?.id === request.id}
+                        onClick={() => setSelectedServiceRequest(request)}
+                      >
+                        <ServiceName>{request.service?.name || 'Unknown Service'}</ServiceName>
+                        <ServiceDetail>Requested on: {formatDate(request.created_at)}</ServiceDetail>
+                      </ServiceRequestItem>
+                    ))}
+                  </ServiceRequestList>
+                </>
+              )}
+            </ModalBody>
+            
+            <ModalFooter>
+              <CancelButton onClick={() => setShowCreateTicketModal(false)}>
+                Cancel
+              </CancelButton>
+              <CreateButton 
+                onClick={handleCreateTicket}
+                disabled={!selectedServiceRequest || creatingTicket}
+              >
+                {creatingTicket ? (
+                  <>
+                    <FaSpinner className="spinner" /> Creating...
+                  </>
+                ) : (
+                  <>
+                    <FaTicketAlt /> Create Ticket
+                  </>
+                )}
+              </CreateButton>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      )}
 
       {tickets.length === 0 ? (
         <EmptyState>
@@ -209,6 +380,29 @@ const FilterLabel = styled.label`
   align-items: center;
   gap: 0.5rem;
   color: var(--text-secondary);
+`;
+
+const HeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+`;
+
+const AddTicketButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: background-color var(--transition-speed) ease;
+
+  &:hover {
+    background-color: var(--accent-hover);
+  }
 `;
 
 const FilterSelect = styled.select`
@@ -366,6 +560,146 @@ const EmptyState = styled.div`
   background-color: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--border-radius);
+`;
+
+const Modal = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+`;
+
+const ModalContent = styled.div`
+  background-color: var(--card-bg);
+  border-radius: var(--border-radius);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+`;
+
+const ModalHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--card-border);
+
+  h3 {
+    margin: 0;
+    color: var(--text-primary);
+  }
+`;
+
+const CloseButton = styled.button`
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  
+  &:hover {
+    color: var(--text-primary);
+  }
+`;
+
+const ModalBody = styled.div`
+  padding: 1.5rem;
+  overflow-y: auto;
+  max-height: 60vh;
+  
+  p {
+    margin-top: 0;
+    color: var(--text-secondary);
+  }
+`;
+
+const ModalFooter = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--card-border);
+`;
+
+const CancelButton = styled.button`
+  padding: 0.5rem 1rem;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--card-border);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: background-color var(--transition-speed) ease;
+
+  &:hover {
+    background-color: var(--card-border);
+  }
+`;
+
+const CreateButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: background-color var(--transition-speed) ease;
+
+  &:hover {
+    background-color: var(--accent-hover);
+  }
+  
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+  
+  .spinner {
+    animation: spin 1s linear infinite;
+  }
+`;
+
+const ServiceRequestList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+`;
+
+const ServiceRequestItem = styled.div`
+  padding: 1rem;
+  border: 1px solid ${props => props.selected ? 'var(--accent-color)' : 'var(--card-border)'};
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  background-color: ${props => props.selected ? 'rgba(0, 120, 255, 0.05)' : 'var(--card-bg)'};
+  transition: all var(--transition-speed) ease;
+  
+  &:hover {
+    border-color: var(--accent-color);
+    background-color: rgba(0, 120, 255, 0.05);
+  }
+`;
+
+const ServiceName = styled.div`
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+`;
+
+const ServiceDetail = styled.div`
+  font-size: 0.9rem;
+  color: var(--text-secondary);
 `;
 
 export default TicketManagement;
