@@ -183,9 +183,9 @@ function TicketManagement() {
 
   const getUnreadCount = (ticket) => {
     const userId = parseInt(localStorage.getItem('userId'));
-    return ticket.messages.filter(
+    return ticket.messages ? ticket.messages.filter(
       message => !message.is_read && message.sender_id !== userId
-    ).length;
+    ).length : 0;
   };
 
   if (loading && tickets.length === 0) {
@@ -322,7 +322,7 @@ function TicketManagement() {
                 <TicketDetails>
                   <TicketDetail>
                     <FaUser />
-                    <span>From: {ticket.user.username}</span>
+                    <span>From: {ticket.user?.username || 'Unknown User'}</span>
                   </TicketDetail>
                   <TicketDetail>
                     <FaCalendarAlt />
@@ -330,13 +330,13 @@ function TicketManagement() {
                   </TicketDetail>
                   <TicketDetail>
                     <FaComment />
-                    <span>Messages: {ticket.messages.length}</span>
+                    <span>Messages: {ticket.messages ? ticket.messages.length : 0}</span>
                   </TicketDetail>
                 </TicketDetails>
                 
-                {ticket.service_request && (
+                {ticket.service_request && ticket.service_request.service && (
                   <ServiceInfo>
-                    <span>Service: {ticket.service_request.service.name}</span>
+                    <span>Service: {ticket.service_request.service.name || 'Unknown Service'}</span>
                   </ServiceInfo>
                 )}
                 
