@@ -204,7 +204,7 @@ function ServiceRequestReview() {
               <RequestHeader>
                 <ServiceName>
                   <FaServer />
-                  <span>{request.service.name}</span>
+                  <span>{request.service?.name || 'Unknown Service'}</span>
                 </ServiceName>
                 <RequestStatus status={request.status}>
                   {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
@@ -214,16 +214,16 @@ function ServiceRequestReview() {
               <RequestDetails>
                 <RequestDetail>
                   <FaUser />
-                  <span>Requested by: {request.user.username}</span>
+                  <span>Requested by: {request.user?.username || 'Unknown User'}</span>
                 </RequestDetail>
                 <RequestDetail>
                   <FaCalendarAlt />
-                  <span>Requested on: {formatDate(request.created_at)}</span>
+                  <span>Requested on: {request.created_at ? formatDate(request.created_at) : 'Unknown Date'}</span>
                 </RequestDetail>
               </RequestDetails>
 
               <RequestDescription>
-                {request.details}
+                {request.details || 'No details provided'}
               </RequestDescription>
 
               {request.status === 'pending' && (

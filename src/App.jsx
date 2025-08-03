@@ -8,40 +8,41 @@ import ForgotPassword from './components/manage/ForgotPassword';
 import ResetPassword from './components/manage/ResetPassword';
 import { ThemeProvider } from './context/ThemeContext';
 import BattleShips from "./components/Battleships.jsx";
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 // Create router configuration
 const router = createBrowserRouter([
   {
     path: '/',
-    element: <Home />
+    element: <ErrorBoundary><Home /></ErrorBoundary>
   },
   {
     path: '/manage',
-    element: <Manage />
+    element: <ErrorBoundary><Manage /></ErrorBoundary>
   },
   {
     path: '/manage/auth/login',
-    element: <Login />
+    element: <ErrorBoundary><Login /></ErrorBoundary>
   },
   {
     path: '/manage/auth/register',
-    element: <Register />
+    element: <ErrorBoundary><Register /></ErrorBoundary>
   },
   {
     path: '/manage/auth/forgot-password',
-    element: <ForgotPassword />
+    element: <ErrorBoundary><ForgotPassword /></ErrorBoundary>
   },
   {
     path: '/reset-password',
-    element: <ResetPassword />
+    element: <ErrorBoundary><ResetPassword /></ErrorBoundary>
   },
   {
     path: '/verify-email',
-    element: <VerifyEmail />
+    element: <ErrorBoundary><VerifyEmail /></ErrorBoundary>
   },
   {
     path: '/battleships',
-    element: <BattleShips/>
+    element: <ErrorBoundary><BattleShips/></ErrorBoundary>
   }
 ]);
 
