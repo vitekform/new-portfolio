@@ -182,7 +182,7 @@ function Status() {
                 <StatusValue>Checking...</StatusValue>
             ) : (
                 <>
-                  <StatusValue>
+                  <StatusValue status={panelOnlineStatus}>
                     {isPanelOnline ? `Online` : 'Offline'}
                   </StatusValue>
                   <StatusIndicator status={panelOnlineStatus} />
@@ -201,7 +201,7 @@ function Status() {
                 <StatusValue>Measuring...</StatusValue>
             ) : (
                 <>
-                  <StatusValue>
+                  <StatusValue status={node1LatencyI}>
                     {node1Latency !== null ? `${node1Latency} ms` : 'Failed to measure'}
                   </StatusValue>
                   <StatusIndicator status={node1LatencyI} />
