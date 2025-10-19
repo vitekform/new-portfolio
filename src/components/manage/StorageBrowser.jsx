@@ -20,13 +20,14 @@ function StorageBrowser() {
   const [textContent, setTextContent] = useState(''); // for text files
 
   // Virtual (client-side only) directories storage key
+  // Store only for current session (clears when tab is closed or session ends)
   const VDIRS_KEY = 'storageVirtualDirs';
 
   const loadVD = () => {
-    try { return JSON.parse(localStorage.getItem(VDIRS_KEY) || '{}'); } catch { return {}; }
+    try { return JSON.parse(sessionStorage.getItem(VDIRS_KEY) || '{}'); } catch { return {}; }
   };
   const saveVD = (data) => {
-    try { localStorage.setItem(VDIRS_KEY, JSON.stringify(data)); } catch {}
+    try { sessionStorage.setItem(VDIRS_KEY, JSON.stringify(data)); } catch {}
   };
   const getVirtualDirs = (bucket, pref) => {
     const all = loadVD();
@@ -68,21 +69,57 @@ function StorageBrowser() {
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.message || 'Failed to browse');
-      const serverFolders = data.folders || [];
-      const serverNames = new Set(serverFolders.map(f => f.name));
-      const vnames = getVirtualDirs(bucketName, nextPrefix);
-      const mergedFolders = [...serverFolders];
-      for (const name of vnames) {
-        if (!serverNames.has(name)) {
-          mergedFolders.push({ name, prefix: (nextPrefix || '') + name + '/' });
-        } else {
-          // Cleanup: if folder now exists on server, remove it from virtual tracking
-          removeVirtualDir(bucketName, nextPrefix, name);
+
+      // Normalize incoming files and derive folders based on slash-delimited keys
+      const incomingFiles = Array.isArray(data.files) ? data.files : [];
+      const normFiles = incomingFiles.map((it) => {
+        const key = (it && (it.key || it.name)) || '';
+        const safeKey = String(key);
+        const name = safeKey.split('/').pop();
+        return { key: safeKey, name };
+      }).filter(f => f.key);
+
+      const pfx = (data.prefix ?? nextPrefix) || '';
+      const directFiles = [];
+      const folderSet = new Set();
+      for (const f of normFiles) {
+        if (!pfx || f.key.startsWith(pfx)) {
+          const rest = f.key.slice(pfx.length);
+          if (rest.includes('/')) {
+            const folderName = rest.split('/')[0];
+            if (folderName) folderSet.add(folderName);
+          } else {
+            // direct child of current prefix
+            directFiles.push({ key: f.key, name: f.name });
+          }
         }
       }
-      setPrefix(data.prefix || nextPrefix);
-      setFolders(mergedFolders);
-      setFiles(data.files || []);
+
+      // Merge derived folders with any server-reported folders, de-duplicated by name
+      const derivedFolders = Array.from(folderSet).map(name => ({ name, prefix: (pfx || '') + name + '/' }));
+      const serverFolders = Array.isArray(data.folders) ? data.folders : [];
+      const mergedByName = new Map();
+      for (const sf of serverFolders) {
+        if (sf && sf.name) mergedByName.set(sf.name, { name: sf.name, prefix: sf.prefix || ((pfx || '') + sf.name + '/') });
+      }
+      for (const df of derivedFolders) {
+        if (!mergedByName.has(df.name)) mergedByName.set(df.name, df);
+      }
+
+      // Merge in-memory session virtual dirs
+      const vnames = getVirtualDirs(bucketName, pfx);
+      for (const name of vnames) {
+        if (!mergedByName.has(name)) {
+          mergedByName.set(name, { name, prefix: (pfx || '') + name + '/' });
+        } else {
+          // Cleanup: if folder now exists from server/derived, remove it from virtual tracking
+          removeVirtualDir(bucketName, pfx, name);
+        }
+      }
+
+      setPrefix(pfx);
+      setFolders(Array.from(mergedByName.values()).sort((a,b) => a.name.localeCompare(b.name)));
+      setFiles(directFiles.sort((a,b) => a.name.localeCompare(b.name)));
     } catch (e) {
       setError(e.message);
     } finally {
