@@ -5,7 +5,7 @@ This is a portfolio website built with React and Vite, featuring user management
 ## Features
 
 - User registration and authentication
-- Email verification using SendGrid
+- Email verification via SMTP (Nodemailer)
 - Portfolio content management
 - Forgot password functionality
 - Toggle between login and registration
@@ -23,27 +23,28 @@ The following environment variables need to be set for the application to work p
 # No environment variables needed for D1 as it's configured in wrangler.toml
 # The database binding is automatically available in your Cloudflare Workers
 
-# SendGrid Configuration
-SENDGRID_API_KEY=your-sendgrid-api-key
-SENDGRID_FROM_EMAIL=your-verified-sender-email@example.com
+# SMTP Configuration
+SMTP_HOST=smtp.yourprovider.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-smtp-username
+SMTP_PASS=your-smtp-password
+SMTP_FROM_EMAIL=your-sender-email@example.com
 ```
 
-### SendGrid Setup
+### SMTP Setup
 
-To use SendGrid for sending verification emails, you need to:
+To use SMTP for sending emails, you need to:
 
-1. Create a SendGrid account at [sendgrid.com](https://sendgrid.com/)
-2. Verify a sender email address:
-   - Navigate to Settings > Sender Authentication
-   - Choose either Domain Authentication or Single Sender Verification
-   - Follow the steps to verify your sender email
-3. Create an API key:
-   - Navigate to Settings > API Keys
-   - Click "Create API Key"
-   - Select "Restricted Access" and ensure "Mail Send" permission is enabled
-   - Copy the generated API key (you won't be able to see it again)
-   - Use this key as your SENDGRID_API_KEY environment variable
-4. Set your verified sender email as the SENDGRID_FROM_EMAIL environment variable
+1. Get SMTP credentials from your email provider (e.g., Gmail, Outlook, Sendinblue, Mailgun, your own server).
+2. Make sure the sender email address is allowed by your provider and that SPF/DKIM are configured for best deliverability.
+3. Set the SMTP environment variables shown above (SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, SMTP_FROM_EMAIL).
+4. For common providers:
+   - Gmail: host=smtp.gmail.com, port=465 (secure=true) or 587 (secure=false, STARTTLS), user=your full email, pass=App Password.
+   - Outlook/Office365: host=smtp.office365.com, port=587, secure=false (STARTTLS).
+   - Custom SMTP: use values from your server.
+
+After setting environment variables, rebuild and redeploy the project.
 
 ### Installation
 
@@ -65,7 +66,7 @@ yarn build
 - Node.js
 - Cloudflare D1 (SQLite-compatible database)
 - Cloudflare Workers (for serverless functions)
-- SendGrid (for email verification)
+- Nodemailer + SMTP (for email)
 - Styled Components
 
 ## Database Setup

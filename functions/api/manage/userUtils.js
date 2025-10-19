@@ -1,6 +1,32 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import sgMail from '@sendgrid/mail';
+import nodemailer from 'nodemailer';
+
+function createSmtpTransport(env) {
+  const host = env.SMTP_HOST;
+  const port = env.SMTP_PORT ? parseInt(env.SMTP_PORT) : 587;
+  const secure = env.SMTP_SECURE ? String(env.SMTP_SECURE).toLowerCase() === 'true' : port === 465;
+  const user = env.SMTP_USER;
+  const pass = env.SMTP_PASS;
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: user && pass ? { user, pass } : undefined,
+  });
+  return transporter;
+}
+
+async function sendEmail(env, { to, from, subject, html }) {
+  const defaultFrom = env.SMTP_FROM_EMAIL || env.SMTP_USER;
+  const transporter = createSmtpTransport(env);
+  return transporter.sendMail({
+    from: from || defaultFrom,
+    to,
+    subject,
+    html,
+  });
+}
 
 export async function onRequest(context) {
     // Parse the request body
@@ -72,13 +98,10 @@ export async function onRequest(context) {
 
             // Send welcome email
             try {
-                // Initialize SendGrid with API key
-                sgMail.setApiKey(env.SENDGRID_API_KEY);
-
                 // Compose welcome email
                 const msg = {
                     to: email,
-                    from: env.SENDGRID_FROM_EMAIL,
+                    from: env.SMTP_FROM_EMAIL,
                     subject: 'Welcome to Our Platform!',
                     html: `
                         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -93,8 +116,8 @@ export async function onRequest(context) {
                 };
 
                 // Send welcome email (don't wait for it to complete)
-                sgMail.send(msg).catch(err => {
-                    console.error('Error sending welcome email:', err);
+                sendEmail(env, msg).catch(err => {
+                    console.error('Error sending welcome email via SMTP:', err);
                 });
             } catch (emailError) {
                 console.error('Error preparing welcome email:', emailError);
@@ -223,9 +246,7 @@ export async function onRequest(context) {
                             UPDATE users SET verification_tokens = ?1 WHERE id = ?2
                         `).bind(JSON.stringify(verificationTokens), user.id).run();
 
-                        // Send auth code via email
-                        // Initialize SendGrid with API key
-                        sgMail.setApiKey(env.SENDGRID_API_KEY);
+                        // Send auth code via email using SMTP
 
                         // We already have user email and username from userData
                         const userEmail = userData.email;
@@ -234,7 +255,7 @@ export async function onRequest(context) {
                         // Compose email
                         const msg = {
                             to: userEmail,
-                            from: env.SENDGRID_FROM_EMAIL,
+                            from: env.SMTP_FROM_EMAIL,
                             subject: 'Login Verification Code',
                             html: `
                                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -251,7 +272,7 @@ export async function onRequest(context) {
                         };
 
                         // Send email
-                        await sgMail.send(msg);
+                        await sendEmail(env, msg);
 
                         // Return response indicating verification required
                         return new Response(JSON.stringify({
@@ -956,13 +977,10 @@ export async function onRequest(context) {
                 const baseUrl = new URL(request.url).origin;
                 const verificationLink = `${baseUrl}/verify-email?token=${verificationToken}`;
 
-                // Initialize SendGrid with API key
-                sgMail.setApiKey(env.SENDGRID_API_KEY);
-
-                // Compose email
+                // Compose email for SMTP
                 const msg = {
                     to: user.email,
-                    from: env.SENDGRID_FROM_EMAIL, // Verified sender email in SendGrid
+                    from: env.SMTP_FROM_EMAIL,
                     subject: 'Verify Your Email Address',
                     html: `
                         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -981,8 +999,8 @@ export async function onRequest(context) {
                 };
 
                 try {
-                    // Send email
-                    await sgMail.send(msg);
+                    // Send email via SMTP
+                    await sendEmail(env, msg);
 
                     return new Response(JSON.stringify({
                         success: true,
@@ -992,7 +1010,7 @@ export async function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 } catch (emailError) {
-                    console.error('Error sending verification email with SendGrid:', emailError);
+                    console.error('Error sending verification email via SMTP:', emailError);
                     return new Response(JSON.stringify({
                         success: false,
                         message: 'Failed to send verification email',
@@ -1083,13 +1101,10 @@ export async function onRequest(context) {
                 const baseUrl = new URL(request.url).origin;
                 const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
 
-                // Initialize SendGrid with API key
-                sgMail.setApiKey(env.SENDGRID_API_KEY);
-
                 // Compose email
                 const msg = {
                     to: user.email,
-                    from: env.SENDGRID_FROM_EMAIL,
+                    from: env.SMTP_FROM_EMAIL,
                     subject: 'Reset Your Password',
                     html: `
                         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1108,8 +1123,8 @@ export async function onRequest(context) {
                 };
 
                 try {
-                    // Send email
-                    await sgMail.send(msg);
+                    // Send email via SMTP
+                    await sendEmail(env, msg);
 
                     return new Response(JSON.stringify({
                         success: true,
@@ -1119,7 +1134,7 @@ export async function onRequest(context) {
                         headers: { 'Content-Type': 'application/json' }
                     });
                 } catch (emailError) {
-                    console.error('Error sending password reset email with SendGrid:', emailError);
+                    console.error('Error sending password reset email via SMTP:', emailError);
                     return new Response(JSON.stringify({
                         success: false,
                         message: 'Failed to send password reset email',
