@@ -1,54 +1,97 @@
 import { S3Client, ListObjectsV2Command, GetObjectCommand, HeadObjectCommand, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import { DOMParser as XmldomDOMParser } from "@xmldom/xmldom";
+import { XMLParser } from "fast-xml-parser";
 
+// Create a DOMParser polyfill using fast-xml-parser
 if (typeof globalThis.DOMParser === "undefined") {
-    globalThis.DOMParser = XmldomDOMParser;
-}
-
-// Ensure DOMParser.parseFromString always returns a valid document
-try {
-    const OriginalDOMParser = globalThis.DOMParser;
-
-    class SafeDOMParser {
-        parseFromString(str, type) {
+    class FastXMLDOMParser {
+        parseFromString(xmlString, mimeType) {
             try {
-                // Ensure we have a valid string
-                const xmlString = String(str ?? '').trim();
+                const parser = new XMLParser({
+                    ignoreAttributes: false,
+                    attributeNamePrefix: "@_",
+                    textNodeName: "#text",
+                    parseAttributeValue: true,
+                    trimValues: true,
+                });
 
-                // If empty, return error document
-                if (!xmlString) {
-                    const errorParser = new OriginalDOMParser();
-                    return errorParser.parseFromString('<parsererror/>', 'application/xml');
-                }
+                const parsed = parser.parse(xmlString || '<root/>');
 
-                // Parse the XML
-                const parser = new OriginalDOMParser();
-                const doc = parser.parseFromString(xmlString, type || 'application/xml');
+                // Create a minimal DOM-like structure that AWS SDK expects
+                const createNode = (name, value) => ({
+                    nodeName: name,
+                    nodeValue: null,
+                    textContent: typeof value === 'string' ? value : null,
+                    childNodes: [],
+                    attributes: {},
+                    getAttribute: function(attr) { return this.attributes[attr]; },
+                    getElementsByTagName: function(tagName) {
+                        const results = [];
+                        const search = (obj, parentKey) => {
+                            if (parentKey === tagName) results.push(obj);
+                            if (obj && typeof obj === 'object') {
+                                Object.entries(obj).forEach(([key, val]) => {
+                                    if (key.startsWith('@_')) return;
+                                    search(val, key);
+                                });
+                            }
+                        };
+                        search(this, this.nodeName);
+                        return results;
+                    }
+                });
 
-                // Validate the document has a proper structure
-                if (!doc || !doc.documentElement || !doc.documentElement.nodeName) {
-                    const errorParser = new OriginalDOMParser();
-                    return errorParser.parseFromString('<parsererror/>', 'application/xml');
-                }
+                const buildTree = (obj, nodeName = 'root') => {
+                    const node = createNode(nodeName, null);
 
-                // Check for parser errors
-                const parserError = doc.getElementsByTagName('parsererror');
-                if (parserError && parserError.length > 0) {
-                    console.error('XML Parse Error:', xmlString.substring(0, 200));
-                }
+                    if (obj && typeof obj === 'object') {
+                        Object.entries(obj).forEach(([key, value]) => {
+                            if (key.startsWith('@_')) {
+                                node.attributes[key.substring(2)] = value;
+                            } else if (key === '#text') {
+                                node.textContent = value;
+                                node.nodeValue = value;
+                            } else if (Array.isArray(value)) {
+                                value.forEach(item => {
+                                    node.childNodes.push(buildTree(item, key));
+                                });
+                            } else {
+                                node.childNodes.push(buildTree(value, key));
+                            }
+                        });
+                    } else {
+                        node.textContent = String(obj);
+                        node.nodeValue = String(obj);
+                    }
+
+                    return node;
+                };
+
+                const rootKey = Object.keys(parsed)[0] || 'root';
+                const rootNode = buildTree(parsed[rootKey], rootKey);
+
+                const doc = {
+                    documentElement: rootNode,
+                    firstChild: rootNode,
+                    childNodes: [rootNode],
+                    getElementsByTagName: rootNode.getElementsByTagName.bind(rootNode)
+                };
 
                 return doc;
-            } catch (e) {
-                console.error('DOMParser error:', e, 'Input:', String(str ?? '').substring(0, 200));
-                const errorParser = new OriginalDOMParser();
-                return errorParser.parseFromString('<parsererror/>', 'application/xml');
+            } catch (error) {
+                console.error('XML parsing error:', error, 'XML:', xmlString?.substring(0, 500));
+                // Return minimal error document
+                const errorNode = createNode('parsererror', 'Parse error');
+                return {
+                    documentElement: errorNode,
+                    firstChild: errorNode,
+                    childNodes: [errorNode],
+                    getElementsByTagName: () => []
+                };
             }
         }
     }
 
-    globalThis.DOMParser = SafeDOMParser;
-} catch (e) {
-    console.error('Failed to setup SafeDOMParser:', e);
+    globalThis.DOMParser = FastXMLDOMParser;
 }
 
 let s3;
