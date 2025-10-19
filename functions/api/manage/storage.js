@@ -1,6 +1,24 @@
 import { S3Client, ListObjectsV2Command, GetObjectCommand, HeadObjectCommand, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { XMLParser } from "fast-xml-parser";
 
+// Polyfill Node constants for Cloudflare Workers
+if (typeof globalThis.Node === "undefined") {
+    globalThis.Node = {
+        ELEMENT_NODE: 1,
+        ATTRIBUTE_NODE: 2,
+        TEXT_NODE: 3,
+        CDATA_SECTION_NODE: 4,
+        ENTITY_REFERENCE_NODE: 5,
+        ENTITY_NODE: 6,
+        PROCESSING_INSTRUCTION_NODE: 7,
+        COMMENT_NODE: 8,
+        DOCUMENT_NODE: 9,
+        DOCUMENT_TYPE_NODE: 10,
+        DOCUMENT_FRAGMENT_NODE: 11,
+        NOTATION_NODE: 12
+    };
+}
+
 // Create a DOMParser polyfill using fast-xml-parser
 if (typeof globalThis.DOMParser === "undefined") {
     class FastXMLDOMParser {
@@ -18,25 +36,30 @@ if (typeof globalThis.DOMParser === "undefined") {
 
                 // Create a minimal DOM-like structure that AWS SDK expects
                 const createNode = (name, value) => ({
+                    nodeType: globalThis.Node.ELEMENT_NODE,
                     nodeName: name,
                     nodeValue: null,
                     textContent: typeof value === 'string' ? value : null,
                     childNodes: [],
                     attributes: {},
+                    firstChild: null,
+                    parentNode: null,
                     getAttribute: function(attr) { return this.attributes[attr]; },
                     getElementsByTagName: function(tagName) {
                         const results = [];
-                        const search = (obj, parentKey) => {
-                            if (parentKey === tagName) results.push(obj);
-                            if (obj && typeof obj === 'object') {
-                                Object.entries(obj).forEach(([key, val]) => {
-                                    if (key.startsWith('@_')) return;
-                                    search(val, key);
-                                });
+                        const search = (node) => {
+                            if (node.nodeName === tagName) {
+                                results.push(node);
+                            }
+                            if (node.childNodes && node.childNodes.length > 0) {
+                                node.childNodes.forEach(child => search(child));
                             }
                         };
-                        search(this, this.nodeName);
+                        search(this);
                         return results;
+                    },
+                    getElementsByTagNameNS: function(ns, tagName) {
+                        return this.getElementsByTagName(tagName);
                     }
                 });
 
@@ -44,21 +67,37 @@ if (typeof globalThis.DOMParser === "undefined") {
                     const node = createNode(nodeName, null);
 
                     if (obj && typeof obj === 'object') {
+                        const children = [];
+
                         Object.entries(obj).forEach(([key, value]) => {
                             if (key.startsWith('@_')) {
+                                // Attribute
                                 node.attributes[key.substring(2)] = value;
                             } else if (key === '#text') {
+                                // Text content
                                 node.textContent = value;
                                 node.nodeValue = value;
                             } else if (Array.isArray(value)) {
+                                // Multiple children with same tag
                                 value.forEach(item => {
-                                    node.childNodes.push(buildTree(item, key));
+                                    const childNode = buildTree(item, key);
+                                    childNode.parentNode = node;
+                                    children.push(childNode);
                                 });
                             } else {
-                                node.childNodes.push(buildTree(value, key));
+                                // Single child element
+                                const childNode = buildTree(value, key);
+                                childNode.parentNode = node;
+                                children.push(childNode);
                             }
                         });
-                    } else {
+
+                        node.childNodes = children;
+                        if (children.length > 0) {
+                            node.firstChild = children[0];
+                        }
+                    } else if (obj !== null && obj !== undefined) {
+                        // Primitive value
                         node.textContent = String(obj);
                         node.nodeValue = String(obj);
                     }
@@ -70,10 +109,16 @@ if (typeof globalThis.DOMParser === "undefined") {
                 const rootNode = buildTree(parsed[rootKey], rootKey);
 
                 const doc = {
+                    nodeType: globalThis.Node.DOCUMENT_NODE,
                     documentElement: rootNode,
                     firstChild: rootNode,
                     childNodes: [rootNode],
-                    getElementsByTagName: rootNode.getElementsByTagName.bind(rootNode)
+                    getElementsByTagName: function(tagName) {
+                        return rootNode.getElementsByTagName(tagName);
+                    },
+                    getElementsByTagNameNS: function(ns, tagName) {
+                        return rootNode.getElementsByTagName(tagName);
+                    }
                 };
 
                 return doc;
@@ -82,10 +127,12 @@ if (typeof globalThis.DOMParser === "undefined") {
                 // Return minimal error document
                 const errorNode = createNode('parsererror', 'Parse error');
                 return {
+                    nodeType: globalThis.Node.DOCUMENT_NODE,
                     documentElement: errorNode,
                     firstChild: errorNode,
                     childNodes: [errorNode],
-                    getElementsByTagName: () => []
+                    getElementsByTagName: () => [],
+                    getElementsByTagNameNS: () => []
                 };
             }
         }
