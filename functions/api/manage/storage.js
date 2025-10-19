@@ -1,4 +1,10 @@
 import { S3Client, ListObjectsV2Command, GetObjectCommand, HeadObjectCommand, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { DOMParser as XmldomDOMParser } from "@xmldom/xmldom";
+
+if (typeof globalThis.DOMParser === "undefined") {
+    // Polyfill DOMParser for Cloudflare Workers/Node-like runtimes so AWS SDK v3 can parse S3 XML responses
+    globalThis.DOMParser = XmldomDOMParser;
+}
 
 let s3;
 
@@ -13,30 +19,6 @@ async function init(env) {
         },
     });
 }
-
-async function listMatchingFiles(bucketName, regex, env) {
-    if (!s3) await init(env);
-    const matched = [];
-    let continuationToken;
-
-    do {
-        const response = await s3.send(
-            new ListObjectsV2Command({
-                Bucket: bucketName,
-                ContinuationToken: continuationToken,
-            })
-        );
-
-        for (const obj of response.Contents || []) {
-            if (regex.test(obj.Key)) matched.push(obj.Key);
-        }
-
-        continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
-    } while (continuationToken);
-
-    return matched;
-}
-
 async function getFileContent(bucketName, key, env) {
     if (!s3) await init(env);
     const response = await s3.send(
