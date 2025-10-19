@@ -296,24 +296,77 @@ function StorageBrowser() {
   const handleUpload = async (event) => {
     const files = Array.from(event.target.files || []);
     if (!files.length) return;
+    const CHUNK_SIZE = 90 * 1024 * 1024; // 90MB chunks per Cloudflare limits
     let firstError = null;
     try {
       for (const file of files) {
-        const formData = new FormData();
-        formData.append('action', 'uploadFile');
-        formData.append('userId', userId);
-        formData.append('token', token);
-        formData.append('bucketName', bucketName);
-        // Build a clean object key on the client to avoid server-side path issues
         const rawKey = `${prefix || ''}${file.name}`;
         const cleanKey = rawKey.replace(/^\/+/, '');
-        formData.append('key', cleanKey);
-        formData.append('file', file);
 
-        const res = await fetch('https://storage.ganamaga.me/api/storage', { method: 'POST', body: formData });
-        const data = await res.json();
-        if (!data.success) {
-          if (!firstError) firstError = new Error(data.message || `Upload failed for ${file.name}`);
+        if (file.size > CHUNK_SIZE) {
+          // Chunked upload
+          const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+          const uploadId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+          for (let i = 0; i < totalChunks; i++) {
+            const start = i * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, file.size);
+            const chunk = file.slice(start, end);
+            const formData = new FormData();
+            formData.append('action', 'uploadChunk');
+            formData.append('userId', userId);
+            formData.append('token', token);
+            formData.append('bucketName', bucketName);
+            formData.append('key', cleanKey);
+            formData.append('uploadId', uploadId);
+            formData.append('index', String(i));
+            formData.append('totalChunks', String(totalChunks));
+            formData.append('contentType', file.type || 'application/octet-stream');
+            // Use field name 'file' to match server multer.single('file')
+            formData.append('file', chunk, `${file.name}.part-${i}`);
+
+            const res = await fetch('https://storage.ganamaga.me/api/storage', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (!data.success) {
+              if (!firstError) firstError = new Error(data.message || `Chunk ${i + 1}/${totalChunks} upload failed for ${file.name}`);
+              break;
+            }
+          }
+          if (!firstError) {
+            // Complete upload
+            const res = await fetch('https://storage.ganamaga.me/api/storage', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'completeUpload',
+                userId,
+                token,
+                bucketName,
+                key: cleanKey,
+                uploadId,
+                totalChunks,
+                contentType: file.type || 'application/octet-stream'
+              })
+            });
+            const data = await res.json();
+            if (!data.success && !firstError) {
+              firstError = new Error(data.message || `Finalize failed for ${file.name}`);
+            }
+          }
+        } else {
+          // Small file: direct upload
+          const formData = new FormData();
+          formData.append('action', 'uploadFile');
+          formData.append('userId', userId);
+          formData.append('token', token);
+          formData.append('bucketName', bucketName);
+          formData.append('key', cleanKey);
+          formData.append('file', file);
+
+          const res = await fetch('https://storage.ganamaga.me/api/storage', { method: 'POST', body: formData });
+          const data = await res.json();
+          if (!data.success) {
+            if (!firstError) firstError = new Error(data.message || `Upload failed for ${file.name}`);
+          }
         }
       }
       // Refresh listing once after all uploads
