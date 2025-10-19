@@ -18,7 +18,7 @@ function StorageBrowser() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/manage/storage', {
+      const res = await fetch('https://storage.ganamaga.me/api/storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -62,7 +62,7 @@ function StorageBrowser() {
   const handleDelete = async (key) => {
     if (!window.confirm(`Delete ${key}?`)) return;
     try {
-      const res = await fetch('/api/manage/storage', {
+      const res = await fetch('https://storage.ganamaga.me/api/storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'deleteFile', userId, token, bucketName, key })
@@ -77,7 +77,7 @@ function StorageBrowser() {
 
   const handleDownload = async (key) => {
     try {
-      const res = await fetch('/api/manage/storage', {
+      const res = await fetch('https://storage.ganamaga.me/api/storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'downloadFile', userId, token, bucketName, key })
@@ -105,7 +105,7 @@ function StorageBrowser() {
     // For images or text, try to open in new tab if possible
     try {
       // Try fetching type first (optional)
-      const res = await fetch('/api/manage/storage', {
+      const res = await fetch('https://storage.ganamaga.me/api/storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'downloadFile', userId, token, bucketName, key })
@@ -135,7 +135,7 @@ function StorageBrowser() {
       formData.append('prefix', prefix);
       formData.append('file', file);
 
-      const res = await fetch('/api/manage/storage', { method: 'POST', body: formData });
+      const res = await fetch('https://storage.ganamaga.me/api/storage', { method: 'POST', body: formData });
       const data = await res.json();
       if (!data.success) throw new Error(data.message || 'Upload failed');
       fetchListing();
