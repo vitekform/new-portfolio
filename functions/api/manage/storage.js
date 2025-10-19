@@ -6,6 +6,30 @@ if (typeof globalThis.DOMParser === "undefined") {
     globalThis.DOMParser = XmldomDOMParser;
 }
 
+// Ensure DOMParser.parseFromString always returns a document with a root node
+// Some XML parsers may return an empty document for invalid/empty input, and the AWS SDK expects
+// document.firstChild.nodeName to be readable. We wrap the parser to provide a safe fallback.
+try {
+    const OriginalDOMParser = globalThis.DOMParser;
+    class SafeDOMParser extends OriginalDOMParser {
+        parseFromString(str, type) {
+            try {
+                const doc = super.parseFromString(String(str ?? ''), type || 'application/xml');
+                const first = doc && (doc.firstChild || (doc.childNodes && doc.childNodes[0])) || null;
+                if (!first || !first.nodeName) {
+                    return new OriginalDOMParser().parseFromString('<parsererror/>', 'application/xml');
+                }
+                return doc;
+            } catch (e) {
+                return new OriginalDOMParser().parseFromString('<parsererror/>', 'application/xml');
+            }
+        }
+    }
+    globalThis.DOMParser = SafeDOMParser;
+} catch (e) {
+    // If wrapping fails for any reason, continue with the existing DOMParser
+}
+
 let s3;
 
 async function init(env) {
