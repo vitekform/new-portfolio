@@ -85,7 +85,7 @@ export async function onRequest(context) {
     const { request, env } = context;
 
     return new Response(JSON.stringify({
-        "message": {env.MINIO_USER}
+        "message": env.MINIO_USER
     }),
         {
             status: 200,
