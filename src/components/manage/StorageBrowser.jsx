@@ -19,6 +19,35 @@ function StorageBrowser() {
   const [viewerMime, setViewerMime] = useState('');
   const [textContent, setTextContent] = useState(''); // for text files
 
+  // Virtual (client-side only) directories storage key
+  const VDIRS_KEY = 'storageVirtualDirs';
+
+  const loadVD = () => {
+    try { return JSON.parse(localStorage.getItem(VDIRS_KEY) || '{}'); } catch { return {}; }
+  };
+  const saveVD = (data) => {
+    try { localStorage.setItem(VDIRS_KEY, JSON.stringify(data)); } catch {}
+  };
+  const getVirtualDirs = (bucket, pref) => {
+    const all = loadVD();
+    return (all?.[bucket]?.[pref]) || [];
+  };
+  const addVirtualDir = (bucket, pref, name) => {
+    const all = loadVD();
+    if (!all[bucket]) all[bucket] = {};
+    const existing = new Set(all[bucket][pref] || []);
+    existing.add(name);
+    all[bucket][pref] = Array.from(existing);
+    saveVD(all);
+  };
+  const removeVirtualDir = (bucket, pref, name) => {
+    const all = loadVD();
+    if (!all[bucket] || !all[bucket][pref]) return;
+    all[bucket][pref] = (all[bucket][pref] || []).filter(n => n !== name);
+    if (all[bucket][pref].length === 0) delete all[bucket][pref];
+    saveVD(all);
+  };
+
   const userId = localStorage.getItem('userId');
   const token = localStorage.getItem('token');
 
@@ -39,8 +68,20 @@ function StorageBrowser() {
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.message || 'Failed to browse');
+      const serverFolders = data.folders || [];
+      const serverNames = new Set(serverFolders.map(f => f.name));
+      const vnames = getVirtualDirs(bucketName, nextPrefix);
+      const mergedFolders = [...serverFolders];
+      for (const name of vnames) {
+        if (!serverNames.has(name)) {
+          mergedFolders.push({ name, prefix: (nextPrefix || '') + name + '/' });
+        } else {
+          // Cleanup: if folder now exists on server, remove it from virtual tracking
+          removeVirtualDir(bucketName, nextPrefix, name);
+        }
+      }
       setPrefix(data.prefix || nextPrefix);
-      setFolders(data.folders || []);
+      setFolders(mergedFolders);
       setFiles(data.files || []);
     } catch (e) {
       setError(e.message);
@@ -57,6 +98,33 @@ function StorageBrowser() {
   const navigateTo = (subPrefix) => {
     const newPrefix = subPrefix;
     fetchListing(newPrefix);
+  };
+
+  const handleCreateFolder = () => {
+    const input = window.prompt('New folder name');
+    if (input == null) return;
+    const name = input.trim();
+    if (!name) {
+      alert('Folder name cannot be empty');
+      return;
+    }
+    if (/[\\\/]/.test(name)) {
+      alert('Folder name cannot contain slashes');
+      return;
+    }
+    if (name === '.' || name === '..') {
+      alert('Invalid folder name');
+      return;
+    }
+    const existingNames = new Set((folders || []).map(f => (f.name || '').toLowerCase()));
+    if (existingNames.has(name.toLowerCase())) {
+      alert('A folder with this name already exists here');
+      return;
+    }
+    addVirtualDir(bucketName, prefix, name);
+    setFolders(prev => ([...(prev || []), { name, prefix: (prefix || '') + name + '/' }]));
+    // Navigate into the newly created folder to enable immediate uploads
+    navigateTo((prefix || '') + name + '/');
   };
 
   const goUp = () => {
@@ -242,6 +310,7 @@ function StorageBrowser() {
         </div>
         <div>
           <button onClick={goUp} disabled={!prefix}>Up</button>
+          <button onClick={handleCreateFolder} style={{ marginLeft: 8 }}>New Folder</button>
           <span style={{ marginLeft: 8, opacity: 0.8 }}>Path: /{prefix}</span>
         </div>
         <div>
