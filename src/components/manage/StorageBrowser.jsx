@@ -267,7 +267,10 @@ function StorageBrowser() {
         formData.append('userId', userId);
         formData.append('token', token);
         formData.append('bucketName', bucketName);
-        formData.append('prefix', prefix);
+        // Build a clean object key on the client to avoid server-side path issues
+        const rawKey = `${prefix || ''}${file.name}`;
+        const cleanKey = rawKey.replace(/^\/+/, '');
+        formData.append('key', cleanKey);
         formData.append('file', file);
 
         const res = await fetch('https://storage.ganamaga.me/api/storage', { method: 'POST', body: formData });
