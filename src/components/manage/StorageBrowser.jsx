@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import FileViewer from 'react-file-viewer';
 
 const DEFAULT_BUCKET = 'portfolio';
 
@@ -10,6 +11,13 @@ function StorageBrowser() {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // Preview state for react-file-viewer
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState('');
+  const [viewerType, setViewerType] = useState(''); // extension like 'pdf', 'png', etc.
+  const [viewerName, setViewerName] = useState('');
+  const [viewerMime, setViewerMime] = useState('');
+  const [textContent, setTextContent] = useState(''); // for text files
 
   const userId = localStorage.getItem('userId');
   const token = localStorage.getItem('token');
@@ -103,7 +111,7 @@ function StorageBrowser() {
 
   const handleOpen = async (key) => {
     try {
-      // 1) Get MIME type first
+      // Determine MIME type first
       const typeRes = await fetch('https://storage.ganamaga.me/api/storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -113,6 +121,8 @@ function StorageBrowser() {
       if (!typeData.success) throw new Error(typeData.message || 'Failed to get file type');
       const mime = typeData.mimeType || typeData.contentType || 'application/octet-stream';
 
+      const filename = key.split('/').pop();
+      const ext = (filename.includes('.') ? filename.split('.').pop() : '').toLowerCase();
       const isTextLike = (mt) => {
         if (!mt) return false;
         if (mt.startsWith('text/')) return true;
@@ -120,8 +130,8 @@ function StorageBrowser() {
         return textish.includes(mt);
       };
 
+      // If text-like, fetch content and show in modal (not via FileViewer)
       if (isTextLike(mime) || mime === 'text/markdown' || mime === 'text/csv') {
-        // 2a) Text: fetch UTF-8 content and show in a new window
         const contentRes = await fetch('https://storage.ganamaga.me/api/storage', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -129,48 +139,19 @@ function StorageBrowser() {
         });
         const contentData = await contentRes.json();
         if (!contentData.success) throw new Error(contentData.message || 'Failed to open text file');
-        const content = contentData.content || '';
-
-        const win = window.open('', '_blank');
-        if (!win) throw new Error('Popup blocked. Please allow popups for this site.');
-        const escapeHtml = (str) => str
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;');
-        const prettyType = mime.startsWith('text/') ? mime : `text/plain`; // ensure readable
-        win.document.open();
-        win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${key.split('/').pop()}</title></head><body style="margin:0;padding:16px;font-family:monospace;white-space:pre;">`);
-        win.document.write(`<div style="white-space:pre-wrap;">${escapeHtml(content)}</div>`);
-        win.document.write(`</body></html>`);
-        win.document.close();
+        setTextContent(contentData.content || '');
+        setViewerUrl('');
+        setViewerType('txt');
+        setViewerName(filename);
+        setViewerMime(mime);
+        setPreviewOpen(true);
         return;
       }
 
-      const isPreviewable = (mt) => {
-        if (!mt) return false;
-        return mt.startsWith('image/') || mt.startsWith('video/') || mt.startsWith('audio/') || mt === 'application/pdf';
-      };
+      // Supported types for react-file-viewer (best-effort)
+      const supported = new Set(['pdf','png','jpg','jpeg','gif','bmp','webp','csv','doc','docx','xls','xlsx','ppt','pptx','mp4','webm','mov','m4v','avi','mp3','wav','ogg']);
 
-      if (isPreviewable(mime)) {
-        // 2b) Binary previewable: download and open with correct MIME
-        const binRes = await fetch('https://storage.ganamaga.me/api/storage', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'downloadFile', userId, token, bucketName, key })
-        });
-        if (!binRes.ok) {
-          const data = await binRes.json();
-          throw new Error(data.message || 'Failed to download for preview');
-        }
-        const buf = await binRes.arrayBuffer();
-        const blob = new Blob([buf], { type: mime });
-        const url = window.URL.createObjectURL(blob);
-        window.open(url, '_blank');
-        setTimeout(() => window.URL.revokeObjectURL(url), 10000);
-        return;
-      }
-
-      // 2c) Fallback: trigger a download for other types
+      // Download the file as blob (for viewer)
       const dlRes = await fetch('https://storage.ganamaga.me/api/storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -180,11 +161,24 @@ function StorageBrowser() {
         const data = await dlRes.json();
         throw new Error(data.message || 'Failed to download');
       }
-      const blob = await dlRes.blob();
+      const buf = await dlRes.arrayBuffer();
+      const blob = new Blob([buf], { type: mime });
       const url = window.URL.createObjectURL(blob);
+
+      if (supported.has(ext)) {
+        setViewerUrl(url);
+        setViewerType(ext || 'pdf');
+        setViewerName(filename);
+        setViewerMime(mime);
+        setTextContent('');
+        setPreviewOpen(true);
+        return;
+      }
+
+      // Fallback for unsupported types: trigger a download and cleanup
       const a = document.createElement('a');
       a.href = url;
-      a.download = key.split('/').pop();
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -223,6 +217,18 @@ function StorageBrowser() {
       // reset input value to allow re-uploading same filename(s)
       event.target.value = '';
     }
+  };
+
+  const closePreview = () => {
+    if (viewerUrl) {
+      try { window.URL.revokeObjectURL(viewerUrl); } catch {}
+    }
+    setPreviewOpen(false);
+    setViewerUrl('');
+    setViewerType('');
+    setViewerName('');
+    setViewerMime('');
+    setTextContent('');
   };
 
   return (
@@ -266,6 +272,32 @@ function StorageBrowser() {
         ))}
         {!folders.length && !files.length && !loading && <Info>Empty</Info>}
       </List>
+
+      {previewOpen && (
+        <ModalOverlay onClick={closePreview}>
+          <ModalContent onClick={(e) => e.stopPropagation()}>
+            <ModalHeader>
+              <strong>{viewerName}</strong>
+              <button onClick={closePreview}>Close</button>
+            </ModalHeader>
+            <ModalBody>
+              {textContent ? (
+                <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{textContent}</pre>
+              ) : (
+                <FileViewer
+                  fileType={viewerType}
+                  filePath={viewerUrl}
+                  onError={(e) => {
+                    console.error('FileViewer error', e);
+                    closePreview();
+                    setTimeout(() => alert('Cannot preview this file type. It may have been downloaded instead or please try Download.'), 0);
+                  }}
+                />
+              )}
+            </ModalBody>
+          </ModalContent>
+        </ModalOverlay>
+      )}
     </Container>
   );
 }
@@ -309,6 +341,56 @@ const Info = styled.div`
 
 const ErrorMsg = styled.div`
   color: #e44;
+`;
+
+const ModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+`;
+
+const ModalContent = styled.div`
+  width: min(95vw, 1200px);
+  height: min(90vh, 800px);
+  background: #111;
+  color: #eee;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+`;
+
+const ModalHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #1b1b1b;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+
+  button {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+`;
+
+const ModalBody = styled.div`
+  flex: 1;
+  background: #000;
+  padding: 8px;
+  overflow: auto;
+
+  /* Ensure embedded viewers fit */
+  > div { height: 100%; }
 `;
 
 export default StorageBrowser;
