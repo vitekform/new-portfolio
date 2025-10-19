@@ -1,450 +1,164 @@
-import { S3Client, ListObjectsV2Command, GetObjectCommand, HeadObjectCommand, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import { XMLParser } from "fast-xml-parser";
+import { Client as MinioClient } from "minio";
 
-// Polyfill Node constants for Cloudflare Workers
-if (typeof globalThis.Node === "undefined") {
-    globalThis.Node = {
-        ELEMENT_NODE: 1,
-        ATTRIBUTE_NODE: 2,
-        TEXT_NODE: 3,
-        CDATA_SECTION_NODE: 4,
-        ENTITY_REFERENCE_NODE: 5,
-        ENTITY_NODE: 6,
-        PROCESSING_INSTRUCTION_NODE: 7,
-        COMMENT_NODE: 8,
-        DOCUMENT_NODE: 9,
-        DOCUMENT_TYPE_NODE: 10,
-        DOCUMENT_FRAGMENT_NODE: 11,
-        NOTATION_NODE: 12
-    };
-}
+// Initialize MinIO client
+let minio;
 
-// Create a DOMParser polyfill using fast-xml-parser
-if (typeof globalThis.DOMParser === "undefined") {
-    class FastXMLDOMParser {
-        parseFromString(xmlString, mimeType) {
-            try {
-                const parser = new XMLParser({
-                    ignoreAttributes: false,
-                    attributeNamePrefix: "@_",
-                    textNodeName: "#text",
-                    parseAttributeValue: true,
-                    trimValues: true,
-                });
-
-                const parsed = parser.parse(xmlString || '<root/>');
-
-                // Create a minimal DOM-like structure that AWS SDK expects
-                const createNode = (name, value) => ({
-                    nodeType: globalThis.Node.ELEMENT_NODE,
-                    nodeName: name,
-                    nodeValue: null,
-                    textContent: typeof value === 'string' ? value : null,
-                    childNodes: [],
-                    attributes: {},
-                    firstChild: null,
-                    parentNode: null,
-                    getAttribute: function(attr) { return this.attributes[attr]; },
-                    getElementsByTagName: function(tagName) {
-                        const results = [];
-                        const search = (node) => {
-                            if (node.nodeName === tagName) {
-                                results.push(node);
-                            }
-                            if (node.childNodes && node.childNodes.length > 0) {
-                                node.childNodes.forEach(child => search(child));
-                            }
-                        };
-                        search(this);
-                        return results;
-                    },
-                    getElementsByTagNameNS: function(ns, tagName) {
-                        return this.getElementsByTagName(tagName);
-                    }
-                });
-
-                const buildTree = (obj, nodeName = 'root') => {
-                    const node = createNode(nodeName, null);
-
-                    if (obj && typeof obj === 'object') {
-                        const children = [];
-
-                        Object.entries(obj).forEach(([key, value]) => {
-                            if (key.startsWith('@_')) {
-                                // Attribute
-                                node.attributes[key.substring(2)] = value;
-                            } else if (key === '#text') {
-                                // Text content
-                                node.textContent = value;
-                                node.nodeValue = value;
-                            } else if (Array.isArray(value)) {
-                                // Multiple children with same tag
-                                value.forEach(item => {
-                                    const childNode = buildTree(item, key);
-                                    childNode.parentNode = node;
-                                    children.push(childNode);
-                                });
-                            } else {
-                                // Single child element
-                                const childNode = buildTree(value, key);
-                                childNode.parentNode = node;
-                                children.push(childNode);
-                            }
-                        });
-
-                        node.childNodes = children;
-                        if (children.length > 0) {
-                            node.firstChild = children[0];
-                        }
-                    } else if (obj !== null && obj !== undefined) {
-                        // Primitive value
-                        node.textContent = String(obj);
-                        node.nodeValue = String(obj);
-                    }
-
-                    return node;
-                };
-
-                const rootKey = Object.keys(parsed)[0] || 'root';
-                const rootNode = buildTree(parsed[rootKey], rootKey);
-
-                const doc = {
-                    nodeType: globalThis.Node.DOCUMENT_NODE,
-                    documentElement: rootNode,
-                    firstChild: rootNode,
-                    childNodes: [rootNode],
-                    getElementsByTagName: function(tagName) {
-                        return rootNode.getElementsByTagName(tagName);
-                    },
-                    getElementsByTagNameNS: function(ns, tagName) {
-                        return rootNode.getElementsByTagName(tagName);
-                    }
-                };
-
-                return doc;
-            } catch (error) {
-                console.error('XML parsing error:', error, 'XML:', xmlString?.substring(0, 500));
-                // Return minimal error document
-                const errorNode = createNode('parsererror', 'Parse error');
-                return {
-                    nodeType: globalThis.Node.DOCUMENT_NODE,
-                    documentElement: errorNode,
-                    firstChild: errorNode,
-                    childNodes: [errorNode],
-                    getElementsByTagName: () => [],
-                    getElementsByTagNameNS: () => []
-                };
-            }
-        }
-    }
-
-    globalThis.DOMParser = FastXMLDOMParser;
-}
-
-let s3;
-
-async function init(env) {
-    s3 = new S3Client({
-        region: "us-east-1", // MinIO to ignoruje, ale SDK to chce
-        endpoint: "http://77.236.222.115:9000", // adresa tvého MinIO serveru
-        forcePathStyle: true, // nutné pro MinIO (jinak hledá subdomény)
-        credentials: {
-            accessKeyId: env.MINIO_USER,   // nastav si svoje
-            secretAccessKey: env.MINIO_PASSWORD,
-        },
+function initMinio(env) {
+    if (minio) return;
+    minio = new MinioClient({
+        endPoint: "77.236.222.115",
+        port: 9000,
+        useSSL: false,
+        accessKey: env.MINIO_USER,
+        secretKey: env.MINIO_PASSWORD,
     });
-    // Add this after creating the S3Client
-    s3.middlewareStack.add(
-        (next) => async (args) => {
-            const result = await next(args);
-            if (result.response?.body) {
-                console.log('S3 Response:', result.response);
-            }
-            return result;
-        },
-        { step: 'deserialize', priority: 'low' }
-    );
-}
-async function getFileContent(bucketName, key, env) {
-    if (!s3) await init(env);
-    const response = await s3.send(
-        new GetObjectCommand({
-            Bucket: bucketName,
-            Key: key,
-        })
-    );
-
-    const chunks = [];
-    for await (const chunk of response.Body) chunks.push(chunk);
-    return Buffer.concat(chunks).toString("utf-8");
 }
 
-async function getFileType(bucketName, key, env) {
-    if (!s3) await init(env);
-    const response = await s3.send(
-        new HeadObjectCommand({
-            Bucket: bucketName,
-            Key: key,
-        })
-    );
-    return response.ContentType || "unknown";
-}
+// Helper to list objects (directory-aware)
+async function listObjects(bucketName, prefix = "") {
+    const objects = [];
+    const stream = minio.listObjectsV2(bucketName, prefix, true);
 
-/**
- * Nahraje soubor do bucketu.
- * @param {string} bucketName - Název bucketu
- * @param {string} fileName - Název (key) souboru v bucketu
- * @param {Buffer|string|Uint8Array|ReadableStream} fileData - Data k nahrání
- * @param {string} [contentType] - Volitelný MIME typ
- */
-export async function uploadFileToBucket(bucketName, fileName, fileData, contentType = "application/octet-stream", env) {
-    if (!s3) await init(env);
-    const command = new PutObjectCommand({
-        Bucket: bucketName,
-        Key: fileName,
-        Body: fileData,
-        ContentType: contentType,
+    return new Promise((resolve, reject) => {
+        stream.on("data", obj => objects.push(obj));
+        stream.on("error", err => reject(err));
+        stream.on("end", () => resolve(objects));
     });
-
-    await s3.send(command);
 }
 
+// Helper to get object content as string
+async function getObjectContent(bucketName, objectName) {
+    return new Promise((resolve, reject) => {
+        minio.getObject(bucketName, objectName, (err, dataStream) => {
+            if (err) return reject(err);
+            const chunks = [];
+            dataStream.on("data", chunk => chunks.push(chunk));
+            dataStream.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
+            dataStream.on("error", e => reject(e));
+        });
+    });
+}
+
+// Helper to get object content type
+async function getObjectType(bucketName, objectName) {
+    return new Promise((resolve, reject) => {
+        minio.statObject(bucketName, objectName, (err, stat) => {
+            if (err) return reject(err);
+            resolve(stat.metaData["content-type"] || "application/octet-stream");
+        });
+    });
+}
+
+// Helper to upload object
+async function uploadObject(bucketName, objectName, data, contentType = "application/octet-stream") {
+    return minio.putObject(bucketName, objectName, data, { "Content-Type": contentType });
+}
+
+// Helper to delete object
+async function deleteObject(bucketName, objectName) {
+    return minio.removeObject(bucketName, objectName);
+}
+
+// Worker handler
 export async function onRequest(context) {
     const { request, env } = context;
+    initMinio(env);
 
-    const contentType = request.headers.get('content-type') || '';
+    const contentTypeHeader = request.headers.get("content-type") || "";
     let body = {};
-    let uploadFileRef = null;
+    let fileRef = null;
 
-    if (contentType.includes('application/json')) {
+    if (contentTypeHeader.includes("application/json")) {
         body = await request.json();
-    } else if (contentType.includes('multipart/form-data')) {
+    } else if (contentTypeHeader.includes("multipart/form-data")) {
         const formData = await request.formData();
-        // Extract non-file fields to body and keep file separately
         body = {};
         for (const [key, value] of formData.entries()) {
-            if (key === 'file' && value && typeof value === 'object') {
-                uploadFileRef = value;
-            } else {
-                body[key] = value;
-            }
+            if (key === "file" && value && typeof value === "object") fileRef = value;
+            else body[key] = value;
         }
     }
 
-    const action = body.action;
-    const userId = body.userId;
-    const token = body.token;
-
-    if (!userId || !token || !action) {
-        return new Response(JSON.stringify({
-            success: false,
-            message: 'Missing required parameters'
-        }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' }
-        });
+    const { action, userId, token } = body;
+    if (!action || !userId || !token) {
+        return new Response(JSON.stringify({ success: false, message: "Missing required parameters" }), { status: 400, headers: { "Content-Type": "application/json" } });
     }
 
     // Verify user authentication
-    const user = await env.DB.prepare(`
-                SELECT id, role FROM users WHERE id = ?1 AND token = ?2 LIMIT 1
-            `).bind(parseInt(userId), token).first();
+    const user = await env.DB.prepare("SELECT id, role FROM users WHERE id = ?1 AND token = ?2 LIMIT 1").bind(parseInt(userId), token).first();
+    if (!user) return new Response(JSON.stringify({ success: false, message: "Invalid authentication" }), { status: 401, headers: { "Content-Type": "application/json" } });
+    if (!["admin", "root"].includes(user.role)) return new Response(JSON.stringify({ success: false, message: "Unauthorized. Admin or root access required." }), { status: 403, headers: { "Content-Type": "application/json" } });
 
-    if (!user) {
-        return new Response(JSON.stringify({
-            success: false,
-            message: 'Invalid authentication'
-        }), {
-            status: 401,
-            headers: { 'Content-Type': 'application/json' }
-        });
-    }
+    try {
+        if (action === "browse") {
+            const { bucketName, prefix = "" } = body;
+            if (!bucketName) throw new Error("Missing bucketName");
 
-    // Check if user is admin or root
-    if (user.role !== 'admin' && user.role !== 'root') {
-        return new Response(JSON.stringify({
-            success: false,
-            message: 'Unauthorized. Admin or root access required.'
-        }), {
-            status: 403,
-            headers: { 'Content-Type': 'application/json' }
-        });
-    }
+            const objects = await listObjects(bucketName, prefix);
+            const folders = [];
+            const files = [];
 
-    // Directory-aware list using prefix and delimiter
-    if (action === 'browse') {
-        const bucketName = body.bucketName;
-        const prefix = body.prefix || '';
-        if (!bucketName) {
-            return new Response(JSON.stringify({ success: false, message: 'Missing bucketName' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
-        }
-        try {
-            if (!s3) await init(env);
-            const cmd = new ListObjectsV2Command({ Bucket: bucketName, Prefix: prefix, Delimiter: '/' });
-            const resp = await s3.send(cmd);
-            const folders = (resp.CommonPrefixes || []).map(p => ({ name: p.Prefix.replace(prefix, '').replace(/\/$/, ''), prefix: p.Prefix }));
-            const files = (resp.Contents || [])
-                .filter(o => o.Key !== prefix)
-                .map(o => ({
-                    key: o.Key,
-                    name: prefix ? o.Key.substring(prefix.length) : o.Key,
-                    size: o.Size,
-                    lastModified: o.LastModified
-                }));
-            return new Response(JSON.stringify({ success: true, prefix, folders, files }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-        } catch (error) {
-            console.error('Error browsing:', error);
-            return new Response(JSON.stringify({ success: false, message: 'An error occurred while browsing' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
-        }
-    }
-    else if (action === 'getFileType') {
-        const bucketName = body.bucketName;
-        const key = body.key;
-        if (!bucketName || !key) {
-            return new Response(JSON.stringify({
-                success: false,
-                message: 'Missing required parameters'
-            }), {
-                status: 400,
-                headers: { 'Content-Type': 'application/json' }
+            objects.forEach(obj => {
+                if (obj.prefix) {
+                    folders.push({ name: obj.prefix.replace(prefix, "").replace(/\/$/, ""), prefix: obj.prefix });
+                } else {
+                    files.push({
+                        key: obj.name,
+                        name: prefix ? obj.name.substring(prefix.length) : obj.name,
+                        size: obj.size,
+                        lastModified: obj.lastModified
+                    });
+                }
             });
-        }
 
-        try {
-            const type = await getFileType(bucketName, key, env);
-            return new Response(JSON.stringify({
-                success: true,
-                type: type
-            }), {
-                status: 200,
-            }
-            )
+            return new Response(JSON.stringify({ success: true, prefix, folders, files }), { status: 200, headers: { "Content-Type": "application/json" } });
         }
-        catch (error) {
-            console.error('Error getting file type:', error);
-            return new Response(JSON.stringify({
-                success: false,
-                message: 'An error occurred while getting file type'
-            }), {
-                status: 500,
-                headers: { 'Content-Type': 'application/json' }
-            });
+        else if (action === "getFileContent") {
+            const { bucketName, key } = body;
+            if (!bucketName || !key) throw new Error("Missing required parameters");
+            const content = await getObjectContent(bucketName, key);
+            return new Response(JSON.stringify({ success: true, content }), { status: 200, headers: { "Content-Type": "application/json" } });
         }
-    }
-    else if (action === 'getFileContent') {
-        const bucketName = body.bucketName;
-        const key = body.key;
-        if (!bucketName || !key) {
-            return new Response(JSON.stringify({
-                success: false,
-                message: 'Missing required parameters'
-            }), {
-                status: 400,
-            }
-            )
+        else if (action === "getFileType") {
+            const { bucketName, key } = body;
+            if (!bucketName || !key) throw new Error("Missing required parameters");
+            const type = await getObjectType(bucketName, key);
+            return new Response(JSON.stringify({ success: true, type }), { status: 200, headers: { "Content-Type": "application/json" } });
         }
+        else if (action === "uploadFile") {
+            const { bucketName, key, prefix = "" } = body;
+            if (!bucketName || !fileRef) throw new Error("Missing required parameters or file");
 
-        try {
-            const content = await getFileContent(bucketName, key, env);
-            return new Response(JSON.stringify({
-                success: true,
-                content: content
-            }), {
-                status: 200,
-            }
-            )
+            const arrayBuffer = await fileRef.arrayBuffer();
+            const data = Buffer.from(arrayBuffer);
+            const fileName = key || (prefix ? `${prefix.replace(/^\/+/, "")}/${fileRef.name}` : fileRef.name);
+            await uploadObject(bucketName, fileName, data, fileRef.type || "application/octet-stream");
+
+            return new Response(JSON.stringify({ success: true, message: "File uploaded successfully", key: fileName }), { status: 200, headers: { "Content-Type": "application/json" } });
         }
-        catch (error) {
-            console.error('Error getting file content:', error);
-            return new Response(JSON.stringify({
-                success: false,
-                message: 'An error occurred while getting file content'
-            }), {
-                status: 500,
-                headers: { 'Content-Type': 'application/json' }
-            });
+        else if (action === "deleteFile") {
+            const { bucketName, key } = body;
+            if (!bucketName || !key) throw new Error("Missing required parameters");
+            await deleteObject(bucketName, key);
+            return new Response(JSON.stringify({ success: true }), { status: 200, headers: { "Content-Type": "application/json" } });
         }
-    }
-    else if (action === 'downloadFile') {
-        const bucketName = body.bucketName;
-        const key = body.key;
-        if (!bucketName || !key) {
-            return new Response(JSON.stringify({ success: false, message: 'Missing required parameters' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
-        }
-        try {
-            if (!s3) await init(env);
-            const getResp = await s3.send(new GetObjectCommand({ Bucket: bucketName, Key: key }));
-            const filename = key.split('/').pop();
+        else if (action === "downloadFile") {
+            const { bucketName, key } = body;
+            if (!bucketName || !key) throw new Error("Missing required parameters");
+
+            const data = await getObjectContent(bucketName, key);
+            const filename = key.split("/").pop();
             const headers = new Headers();
-            headers.set('Content-Type', getResp.ContentType || 'application/octet-stream');
-            headers.set('Content-Disposition', `attachment; filename="${filename}"`);
-            return new Response(getResp.Body, { status: 200, headers });
-        } catch (error) {
-            console.error('Error downloading file:', error);
-            return new Response(JSON.stringify({ success: false, message: 'An error occurred while downloading file' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
-        }
-    }
-    else if (action === 'deleteFile') {
-        const bucketName = body.bucketName;
-        const key = body.key;
-        if (!bucketName || !key) {
-            return new Response(JSON.stringify({ success: false, message: 'Missing required parameters' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
-        }
-        try {
-            if (!s3) await init(env);
-            await s3.send(new DeleteObjectCommand({ Bucket: bucketName, Key: key }));
-            return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-        } catch (error) {
-            console.error('Error deleting file:', error);
-            return new Response(JSON.stringify({ success: false, message: 'An error occurred while deleting file' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
-        }
-    }
-    else if (action === 'uploadFile') {
-        const bucketName = body.bucketName;
-        const targetPrefix = (body.prefix || '').replace(/^\/+/, '');
+            headers.set("Content-Type", "application/octet-stream");
+            headers.set("Content-Disposition", `attachment; filename="${filename}"`);
 
-        if (!bucketName) {
-            return new Response(JSON.stringify({ success: false, message: 'Missing bucketName' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+            return new Response(data, { status: 200, headers });
         }
-        const file = uploadFileRef; // from multipart form-data
-        if (!file) {
-            return new Response(JSON.stringify({
-                success: false,
-                message: 'File not found in form data'
-            }), {
-                status: 400,
-                headers: { 'Content-Type': 'application/json' }
-            });
+        else {
+            return new Response(JSON.stringify({ success: false, message: "Unknown action" }), { status: 400, headers: { "Content-Type": "application/json" } });
         }
-        const fileName = body.key || (targetPrefix ? `${targetPrefix}${targetPrefix.endsWith('/') ? '' : '/'}${file.name}` : file.name);
-        const fileType = file.type;
-
-        const arrayBuffer = await file.arrayBuffer();
-        const fileData = Buffer.from(arrayBuffer);
-        const ct = fileType || "application/octet-stream";
-        try {
-            await uploadFileToBucket(bucketName, fileName, fileData, ct, env);
-            return new Response(JSON.stringify({
-                success: true,
-                message: 'File uploaded successfully',
-                key: fileName
-            }), {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-        catch (error) {
-            console.error('Error uploading file:', error);
-            return new Response(JSON.stringify({
-                success: false,
-                message: 'An error occurred while uploading file'
-            }), {
-                status: 500,
-            }
-            )
-        }
-    }
-    else {
-        return new Response(JSON.stringify({ success: false, message: 'Unknown action' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    } catch (err) {
+        console.error("Error:", err);
+        return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: { "Content-Type": "application/json" } });
     }
 }
