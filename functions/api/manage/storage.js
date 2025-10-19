@@ -84,14 +84,6 @@ export async function uploadFileToBucket(bucketName, fileName, fileData, content
 export async function onRequest(context) {
     const { request, env } = context;
 
-    return new Response(JSON.stringify({
-        "message": env.MINIO_USER
-    }),
-        {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-        });
-
     const contentType = request.headers.get('content-type') || '';
     let body = {};
     let uploadFileRef = null;
