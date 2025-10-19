@@ -2,32 +2,53 @@ import { S3Client, ListObjectsV2Command, GetObjectCommand, HeadObjectCommand, Pu
 import { DOMParser as XmldomDOMParser } from "@xmldom/xmldom";
 
 if (typeof globalThis.DOMParser === "undefined") {
-    // Polyfill DOMParser for Cloudflare Workers/Node-like runtimes so AWS SDK v3 can parse S3 XML responses
     globalThis.DOMParser = XmldomDOMParser;
 }
 
-// Ensure DOMParser.parseFromString always returns a document with a root node
-// Some XML parsers may return an empty document for invalid/empty input, and the AWS SDK expects
-// document.firstChild.nodeName to be readable. We wrap the parser to provide a safe fallback.
+// Ensure DOMParser.parseFromString always returns a valid document
 try {
     const OriginalDOMParser = globalThis.DOMParser;
-    class SafeDOMParser extends OriginalDOMParser {
+
+    class SafeDOMParser {
         parseFromString(str, type) {
             try {
-                const doc = super.parseFromString(String(str ?? ''), type || 'application/xml');
-                const first = doc && (doc.firstChild || (doc.childNodes && doc.childNodes[0])) || null;
-                if (!first || !first.nodeName) {
-                    return new OriginalDOMParser().parseFromString('<parsererror/>', 'application/xml');
+                // Ensure we have a valid string
+                const xmlString = String(str ?? '').trim();
+
+                // If empty, return error document
+                if (!xmlString) {
+                    const errorParser = new OriginalDOMParser();
+                    return errorParser.parseFromString('<parsererror/>', 'application/xml');
                 }
+
+                // Parse the XML
+                const parser = new OriginalDOMParser();
+                const doc = parser.parseFromString(xmlString, type || 'application/xml');
+
+                // Validate the document has a proper structure
+                if (!doc || !doc.documentElement || !doc.documentElement.nodeName) {
+                    const errorParser = new OriginalDOMParser();
+                    return errorParser.parseFromString('<parsererror/>', 'application/xml');
+                }
+
+                // Check for parser errors
+                const parserError = doc.getElementsByTagName('parsererror');
+                if (parserError && parserError.length > 0) {
+                    console.error('XML Parse Error:', xmlString.substring(0, 200));
+                }
+
                 return doc;
             } catch (e) {
-                return new OriginalDOMParser().parseFromString('<parsererror/>', 'application/xml');
+                console.error('DOMParser error:', e, 'Input:', String(str ?? '').substring(0, 200));
+                const errorParser = new OriginalDOMParser();
+                return errorParser.parseFromString('<parsererror/>', 'application/xml');
             }
         }
     }
+
     globalThis.DOMParser = SafeDOMParser;
 } catch (e) {
-    // If wrapping fails for any reason, continue with the existing DOMParser
+    console.error('Failed to setup SafeDOMParser:', e);
 }
 
 let s3;
@@ -42,6 +63,17 @@ async function init(env) {
             secretAccessKey: env.MINIO_PASSWORD,
         },
     });
+    // Add this after creating the S3Client
+    s3.middlewareStack.add(
+        (next) => async (args) => {
+            const result = await next(args);
+            if (result.response?.body) {
+                console.log('S3 Response:', result.response);
+            }
+            return result;
+        },
+        { step: 'deserialize', priority: 'low' }
+    );
 }
 async function getFileContent(bucketName, key, env) {
     if (!s3) await init(env);
