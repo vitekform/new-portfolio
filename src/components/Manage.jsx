@@ -9,6 +9,7 @@ import Services from './manage/Services';
 import AccountSettings from './manage/AccountSettings';
 import ServiceRequestReview from './manage/ServiceRequestReview';
 import TicketManagement from './manage/TicketManagement';
+import StorageBrowser from './manage/StorageBrowser';
 import '../App.css';
 import '../index.css';
 
@@ -149,12 +150,20 @@ function Manage() {
 
             {/* Only show Service Request Review to admin and root users */}
             {(userData?.role === 'admin' || userData?.role === 'root') && (
-              <SidebarItem 
-                active={activeSection === 'service-requests'} 
-                onClick={() => setActiveSection('service-requests')}
-              >
-                <FaClipboardCheck /> Service Requests
-              </SidebarItem>
+              <>
+                <SidebarItem 
+                  active={activeSection === 'service-requests'} 
+                  onClick={() => setActiveSection('service-requests')}
+                >
+                  <FaClipboardCheck /> Service Requests
+                </SidebarItem>
+                <SidebarItem 
+                  active={activeSection === 'storage'} 
+                  onClick={() => setActiveSection('storage')}
+                >
+                  📦 Storage
+                </SidebarItem>
+              </>
             )}
 
             {/* Show Ticket Management to all users */}
@@ -220,6 +229,12 @@ function Manage() {
               <TicketsSection>
                 <TicketManagement />
               </TicketsSection>
+            )}
+
+            {activeSection === 'storage' && (userData?.role === 'admin' || userData?.role === 'root') && (
+              <ServicesSection>
+                <StorageBrowser />
+              </ServicesSection>
             )}
           </ContentArea>
         </DashboardLayout>
