@@ -56,7 +56,7 @@ function StorageBrowser() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('https://storage.ganamaga.me/api/storage', {
+      const res = await fetch('https://ganamaga.me/ext/storage/api/storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
