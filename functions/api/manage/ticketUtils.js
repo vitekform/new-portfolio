@@ -149,7 +149,7 @@ export async function onRequest(context) {
             let query = `
                 SELECT t.*, 
                        u.id as user_id, u.username, u.email,
-                       sr.id as service_request_id, sr.title as service_request_title,
+                       sr.id as service_request_id, sr.title as service_request_title, sr.details as service_request_details,
                        s.id as service_id, s.name as service_name
                 FROM tickets t
                 LEFT JOIN users u ON t.user_id = u.id
@@ -179,7 +179,31 @@ export async function onRequest(context) {
 
             // Get tickets
             const ticketsResult = await env.DB.prepare(query).bind(...params).all();
-            const tickets = ticketsResult.results;
+            const tickets = ticketsResult.results.map(ticket => {
+                // Restructure ticket data with nested objects
+                const restructured = {
+                    id: ticket.id,
+                    title: ticket.title,
+                    status: ticket.status,
+                    created_at: ticket.created_at,
+                    updated_at: ticket.updated_at,
+                    user: ticket.user_id ? {
+                        id: ticket.user_id,
+                        username: ticket.username,
+                        email: ticket.email
+                    } : null,
+                    service_request: ticket.service_request_id ? {
+                        id: ticket.service_request_id,
+                        title: ticket.service_request_title,
+                        details: ticket.service_request_details,
+                        service: ticket.service_id ? {
+                            id: ticket.service_id,
+                            name: ticket.service_name
+                        } : null
+                    } : null
+                };
+                return restructured;
+            });
 
             // Get messages for each ticket
             for (let ticket of tickets) {
@@ -192,7 +216,18 @@ export async function onRequest(context) {
                     ORDER BY tm.created_at ASC
                 `).bind(ticket.id).all();
 
-                ticket.messages = messagesResult.results;
+                ticket.messages = messagesResult.results.map(msg => ({
+                    id: msg.id,
+                    content: msg.content,
+                    is_read: msg.is_read,
+                    created_at: msg.created_at,
+                    sender_id: msg.sender_id,
+                    sender: msg.sender_id ? {
+                        id: msg.sender_id,
+                        username: msg.sender_username,
+                        role: msg.sender_role
+                    } : null
+                }));
             }
 
             return new Response(JSON.stringify({
@@ -246,10 +281,10 @@ export async function onRequest(context) {
             }
 
             // Get ticket with related data
-            const ticket = await env.DB.prepare(`
+            const ticketRaw = await env.DB.prepare(`
                 SELECT t.*, 
                        u.id as user_id, u.username, u.email,
-                       sr.id as service_request_id, sr.title as service_request_title,
+                       sr.id as service_request_id, sr.title as service_request_title, sr.details as service_request_details,
                        s.id as service_id, s.name as service_name
                 FROM tickets t
                 LEFT JOIN users u ON t.user_id = u.id
@@ -259,7 +294,7 @@ export async function onRequest(context) {
                 LIMIT 1
             `).bind(parseInt(ticketId)).first();
 
-            if (!ticket) {
+            if (!ticketRaw) {
                 return new Response(JSON.stringify({
                     success: false,
                     message: 'Ticket not found'
@@ -270,7 +305,7 @@ export async function onRequest(context) {
             }
 
             // Check if user is the owner of the ticket or is admin/root
-            if (ticket.user_id !== user.id && user.role !== 'admin' && user.role !== 'root') {
+            if (ticketRaw.user_id !== user.id && user.role !== 'admin' && user.role !== 'root') {
                 return new Response(JSON.stringify({
                     success: false,
                     message: 'Unauthorized. You can only view your own tickets.'
@@ -279,6 +314,29 @@ export async function onRequest(context) {
                     headers: { 'Content-Type': 'application/json' }
                 });
             }
+
+            // Restructure ticket data with nested objects
+            const ticket = {
+                id: ticketRaw.id,
+                title: ticketRaw.title,
+                status: ticketRaw.status,
+                created_at: ticketRaw.created_at,
+                updated_at: ticketRaw.updated_at,
+                user: ticketRaw.user_id ? {
+                    id: ticketRaw.user_id,
+                    username: ticketRaw.username,
+                    email: ticketRaw.email
+                } : null,
+                service_request: ticketRaw.service_request_id ? {
+                    id: ticketRaw.service_request_id,
+                    title: ticketRaw.service_request_title,
+                    details: ticketRaw.service_request_details,
+                    service: ticketRaw.service_id ? {
+                        id: ticketRaw.service_id,
+                        name: ticketRaw.service_name
+                    } : null
+                } : null
+            };
 
             // Get messages for the ticket
             const messagesResult = await env.DB.prepare(`
@@ -290,7 +348,18 @@ export async function onRequest(context) {
                 ORDER BY tm.created_at ASC
             `).bind(parseInt(ticketId)).all();
 
-            ticket.messages = messagesResult.results;
+            ticket.messages = messagesResult.results.map(msg => ({
+                id: msg.id,
+                content: msg.content,
+                is_read: msg.is_read,
+                created_at: msg.created_at,
+                sender_id: msg.sender_id,
+                sender: msg.sender_id ? {
+                    id: msg.sender_id,
+                    username: msg.sender_username,
+                    role: msg.sender_role
+                } : null
+            }));
 
             // Mark unread messages as read if the user is the recipient
             const unreadMessages = ticket.messages.filter(
@@ -405,13 +474,27 @@ export async function onRequest(context) {
             const messageId = insertResult.meta.last_row_id;
 
             // Get the created message with sender info
-            const message = await env.DB.prepare(`
+            const messageRaw = await env.DB.prepare(`
                 SELECT tm.*, 
                        u.id as sender_id, u.username as sender_username, u.role as sender_role
                 FROM ticket_messages tm
                 LEFT JOIN users u ON tm.sender_id = u.id
                 WHERE tm.id = ?1
             `).bind(messageId).first();
+
+            // Structure the message properly
+            const message = {
+                id: messageRaw.id,
+                content: messageRaw.content,
+                is_read: messageRaw.is_read,
+                created_at: messageRaw.created_at,
+                sender_id: messageRaw.sender_id,
+                sender: messageRaw.sender_id ? {
+                    id: messageRaw.sender_id,
+                    username: messageRaw.sender_username,
+                    role: messageRaw.sender_role
+                } : null
+            };
 
             // Update ticket's updated_at timestamp
             await env.DB.prepare(`

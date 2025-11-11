@@ -32,7 +32,7 @@
   {
     "app_name": "Storage",
     "app_url": "/manage/app/storage",
-    "role": "admin",
+    "role": "root",
     "icon": "Storage"
   },
   {
