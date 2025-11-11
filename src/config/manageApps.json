@@ -1,0 +1,50 @@
+[
+  {
+    "app_name": "Dashboard",
+    "app_url": "/manage/app/dashboard",
+    "role": "user",
+    "icon": "Dashboard"
+  },
+  {
+    "app_name": "Status",
+    "app_url": "/manage/app/status",
+    "role": "user",
+    "icon": "FaChartLine"
+  },
+  {
+    "app_name": "Services",
+    "app_url": "/manage/app/services",
+    "role": "user",
+    "icon": "FaServer"
+  },
+  {
+    "app_name": "Users",
+    "app_url": "/manage/app/users",
+    "role": "admin",
+    "icon": "FaUsers"
+  },
+  {
+    "app_name": "Service Requests",
+    "app_url": "/manage/app/service-requests",
+    "role": "admin",
+    "icon": "FaClipboardCheck"
+  },
+  {
+    "app_name": "Storage",
+    "app_url": "/manage/app/storage",
+    "role": "admin",
+    "icon": "Storage"
+  },
+  {
+    "app_name": "Ticket System",
+    "app_url": "/manage/app/tickets",
+    "role": "user",
+    "icon": "FaTicketAlt"
+  },
+  {
+    "app_name": "Account Settings",
+    "app_url": "/manage/app/account",
+    "role": "user",
+    "icon": "FaCog"
+  }
+]
