@@ -97,10 +97,12 @@ export async function onRequest(context) {
             let query = `
                 SELECT sr.*, 
                        u.id as user_id, u.username, u.email,
-                       s.id as service_id, s.name as service_name, s.description as service_description
+                       s.id as service_id, s.name as service_name, s.description as service_description,
+                       t.id as ticket_id
                 FROM service_requests sr
                 LEFT JOIN users u ON sr.user_id = u.id
                 LEFT JOIN services s ON sr.service_id = s.id
+                LEFT JOIN tickets t ON sr.id = t.service_request_id
                 WHERE 1=1
             `;
 
@@ -118,10 +120,30 @@ export async function onRequest(context) {
 
             // Get service requests
             const serviceRequestsResult = await env.DB.prepare(query).bind(...params).all();
+            
+            // Restructure service requests with nested objects
+            const serviceRequests = serviceRequestsResult.results.map(sr => ({
+                id: sr.id,
+                details: sr.details,
+                status: sr.status,
+                created_at: sr.created_at,
+                updated_at: sr.updated_at,
+                user: sr.user_id ? {
+                    id: sr.user_id,
+                    username: sr.username,
+                    email: sr.email
+                } : null,
+                service: sr.service_id ? {
+                    id: sr.service_id,
+                    name: sr.service_name,
+                    description: sr.service_description
+                } : null,
+                ticket: sr.ticket_id ? { id: sr.ticket_id } : null
+            }));
 
             return new Response(JSON.stringify({
                 success: true,
-                serviceRequests: serviceRequestsResult.results
+                serviceRequests: serviceRequests
             }), {
                 status: 200,
                 headers: { 'Content-Type': 'application/json' }

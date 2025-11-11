@@ -4,100 +4,6 @@ import FileViewer from 'react-file-viewer';
 
 const DEFAULT_BUCKET = 'portfolio';
 
-// Cloudflare Access helpers: attach CF-Access headers for ganamaga.me/ext/storage
-const CF_ACCESS_URL_PREFIX = 'https://ganamaga.me/ext/storage';
-const CF_CLIENT_ID_KEY = 'cfAccessClientId';
-const CF_CLIENT_SECRET_KEY = 'cfAccessClientSecret';
-
-async function getCfAccessHeaders() {
-  try {
-    // Prefer cached values in sessionStorage
-    const cachedId = sessionStorage.getItem(CF_CLIENT_ID_KEY);
-    const cachedSecret = sessionStorage.getItem(CF_CLIENT_SECRET_KEY);
-    if (cachedId && cachedSecret) {
-      return {
-        'CF-Access-Client-Id': cachedId,
-        'CF-Access-Client-Secret': cachedSecret,
-      };
-    }
-
-    // Allow page to preload via globals (e.g., injected by server template)
-    if (typeof window !== 'undefined') {
-      const gid = window.CF_ACCESS_CLIENT_ID;
-      const gsec = window.CF_ACCESS_CLIENT_SECRET;
-      if (gid && gsec) {
-        sessionStorage.setItem(CF_CLIENT_ID_KEY, gid);
-        sessionStorage.setItem(CF_CLIENT_SECRET_KEY, gsec);
-        return {
-          'CF-Access-Client-Id': gid,
-          'CF-Access-Client-Secret': gsec,
-        };
-      }
-    }
-
-    // Attempt to obtain via a well-known helper endpoint which should be
-    // protected by Cloudflare Access. If the user isn't authenticated,
-    // Cloudflare will redirect to the Access login and then back.
-    // After successful login, retry to read credentials.
-    const helperUrl = `${CF_ACCESS_URL_PREFIX}/.well-known/cf-access-service-token`;
-    try {
-      const res = await fetch(helperUrl, { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json().catch(() => ({}));
-        if (data && data.clientId && data.clientSecret) {
-          sessionStorage.setItem(CF_CLIENT_ID_KEY, data.clientId);
-          sessionStorage.setItem(CF_CLIENT_SECRET_KEY, data.clientSecret);
-          return {
-            'CF-Access-Client-Id': data.clientId,
-            'CF-Access-Client-Secret': data.clientSecret,
-          };
-        }
-      } else if (res.status === 401 || res.status === 403) {
-        // Force navigation to trigger Access flow; upon return, caller can retry
-        window.location.href = helperUrl;
-        throw new Error('Redirecting to Cloudflare Access for authentication...');
-      }
-    } catch (e) {
-      // Network or CORS error; fall through to prompt
-    }
-
-    // As a last resort, ask the user to paste service token values
-    // This is useful in development if helper endpoint is not configured.
-    const id = window.prompt('Enter Cloudflare Access Client ID');
-    const secret = id ? window.prompt('Enter Cloudflare Access Client Secret') : null;
-    if (id && secret) {
-      sessionStorage.setItem(CF_CLIENT_ID_KEY, id);
-      sessionStorage.setItem(CF_CLIENT_SECRET_KEY, secret);
-      return {
-        'CF-Access-Client-Id': id,
-        'CF-Access-Client-Secret': secret,
-      };
-    }
-    // If still nothing, return empty; requests may fail and surface error
-    return {};
-  } catch {
-    return {};
-  }
-}
-
-async function cfFetch(input, init = {}) {
-  const url = typeof input === 'string' ? input : String(input?.url || '');
-  const needsCf = url.startsWith(CF_ACCESS_URL_PREFIX);
-  const opts = { ...init };
-  if (needsCf) {
-    // Ensure cookies for same-origin Access redirects/cookies
-    if (!opts.credentials) opts.credentials = 'include';
-    const extra = await getCfAccessHeaders();
-    // Merge headers smartly, preserving FormData behavior by not overriding Content-Type
-    const original = new Headers(init && init.headers ? init.headers : undefined);
-    // Only append CF headers
-    if (extra['CF-Access-Client-Id']) original.set('CF-Access-Client-Id', extra['CF-Access-Client-Id']);
-    if (extra['CF-Access-Client-Secret']) original.set('CF-Access-Client-Secret', extra['CF-Access-Client-Secret']);
-    opts.headers = original;
-  }
-  return fetch(input, opts);
-}
-
 function StorageBrowser() {
   const [bucketName, setBucketName] = useState(DEFAULT_BUCKET);
   const [prefix, setPrefix] = useState('');
@@ -150,7 +56,7 @@ function StorageBrowser() {
     setLoading(true);
     setError('');
     try {
-      const res = await cfFetch('https://ganamaga.me/ext/storage/api/storage', {
+      const res = await fetch('https://ganamaga.me/ext/storage/api/storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -269,7 +175,7 @@ function StorageBrowser() {
   const handleDelete = async (key) => {
     if (!window.confirm(`Delete ${key}?`)) return;
     try {
-      const res = await cfFetch('https://ganamaga.me/ext/storage/api/storage', {
+      const res = await fetch('https://ganamaga.me/ext/storage/api/storage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'deleteFile', userId, token, bucketName, key })
@@ -284,7 +190,7 @@ function StorageBrowser() {
 
   const handleDownload = async (key) => {
     try {
-      const res = await cfFetch('https://ganamaga.me/ext/storage/api/storage', {
+      const res = await fetch('https://ganamaga.me/ext/storage/api/storage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'downloadFile', userId, token, bucketName, key })
@@ -311,7 +217,7 @@ function StorageBrowser() {
   const handleOpen = async (key) => {
     try {
       // Determine MIME type first
-      const typeRes = await cfFetch('https://ganamaga.me/ext/storage/api/storage', {
+      const typeRes = await fetch('https://ganamaga.me/ext/storage/api/storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'getFileType', userId, token, bucketName, key })
@@ -331,7 +237,7 @@ function StorageBrowser() {
 
       // If text-like, fetch content and show in modal (not via FileViewer)
       if (isTextLike(mime) || mime === 'text/markdown' || mime === 'text/csv') {
-        const contentRes = await cfFetch('https://ganamaga.me/ext/storage/api/storage', {
+        const contentRes = await fetch('https://ganamaga.me/ext/storage/api/storage', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'getFileContent', userId, token, bucketName, key })
@@ -351,7 +257,7 @@ function StorageBrowser() {
       const supported = new Set(['pdf','png','jpg','jpeg','gif','bmp','webp','csv','doc','docx','xls','xlsx','ppt','pptx','mp4','webm','mov','m4v','avi','mp3','wav','ogg']);
 
       // Download the file as blob (for viewer)
-      const dlRes = await cfFetch('https://ganamaga.me/ext/storage/api/storage', {
+      const dlRes = await fetch('https://ganamaga.me/ext/storage/api/storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'downloadFile', userId, token, bucketName, key })
@@ -418,7 +324,7 @@ function StorageBrowser() {
             // Use field name 'file' to match server multer.single('file')
             formData.append('file', chunk, `${file.name}.part-${i}`);
 
-            const res = await cfFetch('https://ganamaga.me/ext/storage/api/storage', { method: 'POST', body: formData });
+            const res = await fetch('https://ganamaga.me/ext/storage/api/storage', { method: 'POST', body: formData });
             const data = await res.json();
             if (!data.success) {
               if (!firstError) firstError = new Error(data.message || `Chunk ${i + 1}/${totalChunks} upload failed for ${file.name}`);
@@ -427,7 +333,7 @@ function StorageBrowser() {
           }
           if (!firstError) {
             // Complete upload
-            const res = await cfFetch('https://ganamaga.me/ext/storage/api/storage', {
+            const res = await fetch('https://ganamaga.me/ext/storage/api/storage', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -456,7 +362,7 @@ function StorageBrowser() {
           formData.append('key', cleanKey);
           formData.append('file', file);
 
-          const res = await cfFetch('https://ganamaga.me/ext/storage/api/storage', { method: 'POST', body: formData });
+          const res = await fetch('https://ganamaga.me/ext/storage/api/storage', { method: 'POST', body: formData });
           const data = await res.json();
           if (!data.success) {
             if (!firstError) firstError = new Error(data.message || `Upload failed for ${file.name}`);
