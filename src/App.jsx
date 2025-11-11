@@ -1,6 +1,6 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import Home from './components/Home';
-import Manage from './components/Manage';
+import ManageLayout from './components/manage/ManageLayout';
 import Login from './components/manage/Login';
 import Register from './components/manage/Register';
 import VerifyEmail from './components/manage/VerifyEmail';
@@ -10,6 +10,16 @@ import { ThemeProvider } from './context/ThemeContext';
 import BattleShips from "./components/Battleships.jsx";
 import ErrorBoundary from './components/common/ErrorBoundary';
 
+// Import standalone app components
+import DashboardApp from './components/manage/apps/DashboardApp';
+import StatusApp from './components/manage/apps/StatusApp';
+import ServicesApp from './components/manage/apps/ServicesApp';
+import UsersApp from './components/manage/apps/UsersApp';
+import ServiceRequestsApp from './components/manage/apps/ServiceRequestsApp';
+import StorageApp from './components/manage/apps/StorageApp';
+import TicketsApp from './components/manage/apps/TicketsApp';
+import AccountApp from './components/manage/apps/AccountApp';
+
 // Create router configuration
 const router = createBrowserRouter([
   {
@@ -18,7 +28,45 @@ const router = createBrowserRouter([
   },
   {
     path: '/manage',
-    element: <ErrorBoundary><Manage /></ErrorBoundary>
+    element: <ErrorBoundary><Navigate to="/manage/app/dashboard" replace /></ErrorBoundary>
+  },
+  {
+    path: '/manage/app',
+    element: <ErrorBoundary><ManageLayout /></ErrorBoundary>,
+    children: [
+      {
+        path: 'dashboard',
+        element: <DashboardApp />
+      },
+      {
+        path: 'status',
+        element: <StatusApp />
+      },
+      {
+        path: 'services',
+        element: <ServicesApp />
+      },
+      {
+        path: 'users',
+        element: <UsersApp />
+      },
+      {
+        path: 'service-requests',
+        element: <ServiceRequestsApp />
+      },
+      {
+        path: 'storage',
+        element: <StorageApp />
+      },
+      {
+        path: 'tickets',
+        element: <TicketsApp />
+      },
+      {
+        path: 'account',
+        element: <AccountApp />
+      }
+    ]
   },
   {
     path: '/manage/auth/login',
