@@ -227,11 +227,11 @@ function TicketChat({ ticket, onClose }) {
       {success && <SuccessMessage>{success}</SuccessMessage>}
 
       <ServiceInfo>
-        {currentTicket.service_request ? (
+        {currentTicket.service_request && currentTicket.service_request.service ? (
           <>
-            <strong>Service:</strong> {currentTicket.service_request.service.name}
+            <strong>Service:</strong> {currentTicket.service_request.service.name || 'Unknown Service'}
             <br />
-            <strong>Details:</strong> {currentTicket.service_request.details}
+            <strong>Details:</strong> {currentTicket.service_request.details || 'No details provided'}
           </>
         ) : (
           <span>No service request attached</span>
@@ -253,8 +253,8 @@ function TicketChat({ ticket, onClose }) {
                 <SenderInfo>
                   <FaUser />
                   <span>
-                    {msg.sender.username}
-                    {msg.sender.role === 'admin' || msg.sender.role === 'root' ? 
+                    {msg.sender?.username || 'Unknown User'}
+                    {msg.sender?.role === 'admin' || msg.sender?.role === 'root' ? 
                       ` (${msg.sender.role})` : ''}
                   </span>
                 </SenderInfo>
