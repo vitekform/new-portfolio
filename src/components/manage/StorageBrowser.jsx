@@ -56,7 +56,7 @@ function StorageBrowser() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('https://ganamaga.me/ext/storage/api/storage', {
+      const res = await fetch('https://storage.ganamaga.me/api/storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -175,7 +175,7 @@ function StorageBrowser() {
   const handleDelete = async (key) => {
     if (!window.confirm(`Delete ${key}?`)) return;
     try {
-      const res = await fetch('https://ganamaga.me/ext/storage/api/storage', {
+      const res = await fetch('https://storage.ganamaga.me/api/storage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'deleteFile', userId, token, bucketName, key })
@@ -190,7 +190,7 @@ function StorageBrowser() {
 
   const handleDownload = async (key) => {
     try {
-      const res = await fetch('https://ganamaga.me/ext/storage/api/storage', {
+      const res = await fetch('https://storage.ganamaga.me/api/storage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'downloadFile', userId, token, bucketName, key })
@@ -217,7 +217,7 @@ function StorageBrowser() {
   const handleOpen = async (key) => {
     try {
       // Determine MIME type first
-      const typeRes = await fetch('https://ganamaga.me/ext/storage/api/storage', {
+      const typeRes = await fetch('https://storage.ganamaga.me/api/storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'getFileType', userId, token, bucketName, key })
@@ -257,7 +257,7 @@ function StorageBrowser() {
       const supported = new Set(['pdf','png','jpg','jpeg','gif','bmp','webp','csv','doc','docx','xls','xlsx','ppt','pptx','mp4','webm','mov','m4v','avi','mp3','wav','ogg']);
 
       // Download the file as blob (for viewer)
-      const dlRes = await fetch('https://ganamaga.me/ext/storage/api/storage', {
+      const dlRes = await fetch('https://storage.ganamaga.me/api/storage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'downloadFile', userId, token, bucketName, key })
@@ -333,7 +333,7 @@ function StorageBrowser() {
           }
           if (!firstError) {
             // Complete upload
-            const res = await fetch('https://ganamaga.me/ext/storage/api/storage', {
+            const res = await fetch('https://storage.ganamaga.me/api/storage', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
