@@ -226,18 +226,7 @@ function ServiceRequestReview() {
                 {request.details || 'No details provided'}
               </RequestDescription>
 
-              {request.status === 'pending' && (
-                <ActionButtons>
-                  <ApproveButton onClick={() => handleUpdateStatus(request.id, 'approved')}>
-                    <FaCheck /> Approve
-                  </ApproveButton>
-                  <RejectButton onClick={() => handleUpdateStatus(request.id, 'rejected')}>
-                    <FaTimes /> Reject
-                  </RejectButton>
-                </ActionButtons>
-              )}
-
-              {request.status === 'approved' && !request.ticket && (
+              {request.status === 'pending' && !request.ticket && (
                 <ActionButtons>
                   <CreateTicketButton 
                     onClick={() => handleCreateTicket(request.id)}
@@ -253,10 +242,33 @@ function ServiceRequestReview() {
                       </>
                     )}
                   </CreateTicketButton>
+                  <ApproveButton onClick={() => handleUpdateStatus(request.id, 'approved')}>
+                    <FaCheck /> Approve
+                  </ApproveButton>
+                  <RejectButton onClick={() => handleUpdateStatus(request.id, 'rejected')}>
+                    <FaTimes /> Reject
+                  </RejectButton>
                 </ActionButtons>
               )}
 
-              {request.ticket && (
+              {request.status === 'pending' && request.ticket && (
+                <>
+                  <TicketInfo>
+                    <FaTicketAlt />
+                    <span>Ticket created - Check Ticket Management</span>
+                  </TicketInfo>
+                  <ActionButtons>
+                    <ApproveButton onClick={() => handleUpdateStatus(request.id, 'approved')}>
+                      <FaCheck /> Approve
+                    </ApproveButton>
+                    <RejectButton onClick={() => handleUpdateStatus(request.id, 'rejected')}>
+                      <FaTimes /> Reject
+                    </RejectButton>
+                  </ActionButtons>
+                </>
+              )}
+
+              {request.status !== 'pending' && request.ticket && (
                 <TicketInfo>
                   <FaTicketAlt />
                   <span>Ticket created - Check Ticket Management</span>
