@@ -19,22 +19,13 @@ const Projects = () => {
           const demoProjects = [
             {
               id: 1,
-              name: 'Trouble In Mineville',
-              description: 'A plugin that brings back TIMV from Mineville.',
-              image: 'https://cdn.ganamaga.me/web/timv.png',
-              skills: ['Java', 'Paper API', 'Maven', 'Git'],
-              github: 'https://github.com/vitekform/trouble-in-mineville',
-              demo: 'https://timv.ganamaga.me'
+              name: 'KHK PCE Membership form',
+              description: 'Membership registration form for KHK PCE.',
+              image: 'https://bcstorage.ganamaga.me/webassets/khk.png',
+              skills: ['JavaScript', 'Cloudflare Pages', 'Vite', 'React'],
+              github: 'https://github.com/vitekform/khk',
+              demo: 'https://khk.ganamaga.me'
             },
-            {
-              id: 2,
-              name: 'Ships (the game you played in school on paper)',
-              description: 'A web-based implementation of the classic game of Battleships. (And everything is in Czech)',
-              image: 'https://via.placeholder.com/300x200?text=Task+Manager',
-              skills: ['React', 'Brain', 'Math', 'Luck'],
-              github: 'https://github.com/vitekform/new-portfolio/blob/master/src/components/Battleships.jsx',
-              demo: 'https://ganamaga.me/battleships'
-            }
           ];
           
           setProjects(demoProjects);
