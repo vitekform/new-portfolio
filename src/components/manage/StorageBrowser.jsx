@@ -4,6 +4,12 @@ import FileViewer from 'react-file-viewer';
 
 const DEFAULT_BUCKET = 'portfolio';
 
+// Supported file types for react-file-viewer
+const SUPPORTED_FILE_TYPES = new Set(['pdf','png','jpg','jpeg','gif','bmp','webp','csv','doc','docx','xls','xlsx','ppt','pptx','mp4','webm','mov','m4v','avi','mp3','wav','ogg']);
+
+// Text file extensions
+const TEXT_FILE_EXTENSIONS = ['txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'jsx', 'ts', 'tsx', 'py', 'java', 'c', 'cpp', 'h', 'sh', 'yml', 'yaml'];
+
 function StorageBrowser() {
   const [bucketName, setBucketName] = useState(DEFAULT_BUCKET);
   const [prefix, setPrefix] = useState('');
@@ -221,18 +227,14 @@ function StorageBrowser() {
       // Use direct URL instead of downloading
       const directUrl = `https://bcstorage.ganamaga.me/${bucketName}/${key}`;
 
-      // Supported types for react-file-viewer (best-effort)
-      const supported = new Set(['pdf','png','jpg','jpeg','gif','bmp','webp','csv','doc','docx','xls','xlsx','ppt','pptx','mp4','webm','mov','m4v','avi','mp3','wav','ogg']);
-
       const isTextLike = (extension) => {
-        const textExts = ['txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'jsx', 'ts', 'tsx', 'py', 'java', 'c', 'cpp', 'h', 'sh', 'yml', 'yaml'];
-        return textExts.includes(extension);
+        return TEXT_FILE_EXTENSIONS.includes(extension);
       };
 
       // If text-like, fetch content and show in modal (not via FileViewer)
       if (isTextLike(ext)) {
         const response = await fetch(directUrl);
-        if (!response.ok) throw new Error('Failed to fetch file content');
+        if (!response.ok) throw new Error(`Failed to fetch file content: ${response.status} ${response.statusText}`);
         const content = await response.text();
         setTextContent(content);
         setViewerUrl('');
@@ -242,7 +244,7 @@ function StorageBrowser() {
         return;
       }
 
-      if (supported.has(ext)) {
+      if (SUPPORTED_FILE_TYPES.has(ext)) {
         setViewerUrl(directUrl);
         setViewerType(ext || 'pdf');
         setViewerName(filename);
