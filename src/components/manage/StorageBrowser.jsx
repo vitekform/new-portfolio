@@ -16,7 +16,6 @@ function StorageBrowser() {
   const [viewerUrl, setViewerUrl] = useState('');
   const [viewerType, setViewerType] = useState(''); // extension like 'pdf', 'png', etc.
   const [viewerName, setViewerName] = useState('');
-  const [viewerMime, setViewerMime] = useState('');
   const [textContent, setTextContent] = useState(''); // for text files
 
   // Virtual (client-side only) directories storage key
@@ -216,78 +215,50 @@ function StorageBrowser() {
 
   const handleOpen = async (key) => {
     try {
-      // Determine MIME type first
-      const typeRes = await fetch('https://storage.ganamaga.me/api/storage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'getFileType', userId, token, bucketName, key })
-      });
-      const typeData = await typeRes.json();
-      if (!typeData.success) throw new Error(typeData.message || 'Failed to get file type');
-      const mime = typeData.mimeType || typeData.contentType || 'application/octet-stream';
-
       const filename = key.split('/').pop();
       const ext = (filename.includes('.') ? filename.split('.').pop() : '').toLowerCase();
-      const isTextLike = (mt) => {
-        if (!mt) return false;
-        if (mt.startsWith('text/')) return true;
-        const textish = ['application/json', 'application/xml', 'application/javascript', 'application/x-javascript', 'application/xhtml+xml'];
-        return textish.includes(mt);
-      };
-
-      // If text-like, fetch content and show in modal (not via FileViewer)
-      if (isTextLike(mime) || mime === 'text/markdown' || mime === 'text/csv') {
-        const contentRes = await fetch('https://ganamaga.me/ext/storage/api/storage', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'getFileContent', userId, token, bucketName, key })
-        });
-        const contentData = await contentRes.json();
-        if (!contentData.success) throw new Error(contentData.message || 'Failed to open text file');
-        setTextContent(contentData.content || '');
-        setViewerUrl('');
-        setViewerType('txt');
-        setViewerName(filename);
-        setViewerMime(mime);
-        setPreviewOpen(true);
-        return;
-      }
+      
+      // Use direct URL instead of downloading
+      const directUrl = `https://bcstorage.ganamaga.me/${bucketName}/${key}`;
 
       // Supported types for react-file-viewer (best-effort)
       const supported = new Set(['pdf','png','jpg','jpeg','gif','bmp','webp','csv','doc','docx','xls','xlsx','ppt','pptx','mp4','webm','mov','m4v','avi','mp3','wav','ogg']);
 
-      // Download the file as blob (for viewer)
-      const dlRes = await fetch('https://storage.ganamaga.me/api/storage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'downloadFile', userId, token, bucketName, key })
-      });
-      if (!dlRes.ok) {
-        const data = await dlRes.json();
-        throw new Error(data.message || 'Failed to download');
+      const isTextLike = (extension) => {
+        const textExts = ['txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'jsx', 'ts', 'tsx', 'py', 'java', 'c', 'cpp', 'h', 'sh', 'yml', 'yaml'];
+        return textExts.includes(extension);
+      };
+
+      // If text-like, fetch content and show in modal (not via FileViewer)
+      if (isTextLike(ext)) {
+        const response = await fetch(directUrl);
+        if (!response.ok) throw new Error('Failed to fetch file content');
+        const content = await response.text();
+        setTextContent(content);
+        setViewerUrl('');
+        setViewerType('txt');
+        setViewerName(filename);
+        setPreviewOpen(true);
+        return;
       }
-      const buf = await dlRes.arrayBuffer();
-      const blob = new Blob([buf], { type: mime });
-      const url = window.URL.createObjectURL(blob);
 
       if (supported.has(ext)) {
-        setViewerUrl(url);
+        setViewerUrl(directUrl);
         setViewerType(ext || 'pdf');
         setViewerName(filename);
-        setViewerMime(mime);
         setTextContent('');
         setPreviewOpen(true);
         return;
       }
 
-      // Fallback for unsupported types: trigger a download and cleanup
+      // Fallback for unsupported types: trigger a download
       const a = document.createElement('a');
-      a.href = url;
+      a.href = directUrl;
       a.download = filename;
+      a.target = '_blank';
       document.body.appendChild(a);
       a.click();
       a.remove();
-      setTimeout(() => window.URL.revokeObjectURL(url), 10000);
     } catch (e) {
       alert(e.message);
     }
@@ -381,14 +352,11 @@ function StorageBrowser() {
   };
 
   const closePreview = () => {
-    if (viewerUrl) {
-      try { window.URL.revokeObjectURL(viewerUrl); } catch {}
-    }
+    // No need to revoke URL since we're using direct URLs now
     setPreviewOpen(false);
     setViewerUrl('');
     setViewerType('');
     setViewerName('');
-    setViewerMime('');
     setTextContent('');
   };
 
