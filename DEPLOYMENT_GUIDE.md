@@ -69,12 +69,11 @@ npx wrangler pages deploy dist
 In Cloudflare Pages dashboard:
 1. Go to your project settings
 2. Navigate to Environment Variables
-3. Ensure these are set:
-   - `SMTP_HOST`
-   - `SMTP_PORT`
-   - `SMTP_USER`
-   - `SMTP_PASS`
-   - `SMTP_FROM_EMAIL`
+3. Set these optional variables for email customization:
+   - `SMTP_FROM_EMAIL` (optional, defaults to "noreply@example.com")
+   - `SMTP_FROM_NAME` (optional, defaults to "Portfolio")
+
+**Note**: Email functionality now uses MailChannels API which is free for Cloudflare Workers and doesn't require SMTP credentials.
 
 ### Step 6: Initial Database Setup (If Needed)
 

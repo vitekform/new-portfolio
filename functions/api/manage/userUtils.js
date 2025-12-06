@@ -1,31 +1,51 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
 
-function createSmtpTransport(env) {
-  const host = env.SMTP_HOST;
-  const port = env.SMTP_PORT ? parseInt(env.SMTP_PORT) : 587;
-  const secure = env.SMTP_SECURE ? String(env.SMTP_SECURE).toLowerCase() === 'true' : port === 465;
-  const user = env.SMTP_USER;
-  const pass = env.SMTP_PASS;
-  const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: user && pass ? { user, pass } : undefined,
-  });
-  return transporter;
-}
-
+/**
+ * Send email using MailChannels API (compatible with Cloudflare Workers)
+ * MailChannels provides free email sending for Cloudflare Workers via HTTP API
+ * This replaces nodemailer which requires Node.js net module (not available in Workers)
+ */
 async function sendEmail(env, { to, from, subject, html }) {
-  const defaultFrom = env.SMTP_FROM_EMAIL || env.SMTP_USER;
-  const transporter = createSmtpTransport(env);
-  return transporter.sendMail({
-    from: from || defaultFrom,
-    to,
-    subject,
-    html,
+  const defaultFrom = env.SMTP_FROM_EMAIL || 'noreply@example.com';
+  const fromEmail = from || defaultFrom;
+  
+  // Use MailChannels API for Cloudflare Workers
+  const mailChannelsEndpoint = 'https://api.mailchannels.net/tx/v1/send';
+  
+  const emailPayload = {
+    personalizations: [
+      {
+        to: [{ email: to }],
+      },
+    ],
+    from: {
+      email: fromEmail,
+      name: env.SMTP_FROM_NAME || 'Portfolio',
+    },
+    subject: subject,
+    content: [
+      {
+        type: 'text/html',
+        value: html,
+      },
+    ],
+  };
+
+  const response = await fetch(mailChannelsEndpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(emailPayload),
   });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`MailChannels API error: ${response.status} - ${errorText}`);
+  }
+
+  return response;
 }
 
 export async function onRequest(context) {

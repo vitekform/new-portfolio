@@ -5,7 +5,7 @@ This is a portfolio website built with React and Vite, featuring user management
 ## Features
 
 - User registration and authentication
-- Email verification via SMTP (Nodemailer)
+- Email verification via MailChannels (Cloudflare Workers compatible)
 - Portfolio content management
 - Forgot password functionality
 - Toggle between login and registration
@@ -23,26 +23,26 @@ The following environment variables need to be set for the application to work p
 # No environment variables needed for D1 as it's configured in wrangler.toml
 # The database binding is automatically available in your Cloudflare Workers
 
-# SMTP Configuration
-SMTP_HOST=smtp.yourprovider.com
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=your-smtp-username
-SMTP_PASS=your-smtp-password
-SMTP_FROM_EMAIL=your-sender-email@example.com
+# Email Configuration (optional)
+SMTP_FROM_EMAIL=noreply@yourdomain.com
+SMTP_FROM_NAME=Portfolio
 ```
 
-### SMTP Setup
+### Email Setup
 
-To use SMTP for sending emails, you need to:
+This application uses MailChannels API for sending emails, which is free for Cloudflare Workers and doesn't require SMTP credentials. MailChannels works out of the box with Cloudflare Workers.
 
-1. Get SMTP credentials from your email provider (e.g., Gmail, Outlook, Sendinblue, Mailgun, your own server).
-2. Make sure the sender email address is allowed by your provider and that SPF/DKIM are configured for best deliverability.
-3. Set the SMTP environment variables shown above (SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, SMTP_FROM_EMAIL).
-4. For common providers:
-   - Gmail: host=smtp.gmail.com, port=465 (secure=true) or 587 (secure=false, STARTTLS), user=your full email, pass=App Password.
-   - Outlook/Office365: host=smtp.office365.com, port=587, secure=false (STARTTLS).
-   - Custom SMTP: use values from your server.
+**Important Notes:**
+- MailChannels is free for Cloudflare Workers
+- No SMTP credentials needed
+- Uses HTTP API instead of socket-based SMTP
+- Set `SMTP_FROM_EMAIL` to customize the sender email address
+- Set `SMTP_FROM_NAME` to customize the sender name (defaults to "Portfolio")
+
+For production use with custom domains:
+1. Configure SPF records: Add `include:relay.mailchannels.net` to your domain's SPF record
+2. Optionally configure DKIM for better deliverability
+3. Use your verified domain in `SMTP_FROM_EMAIL`
 
 After setting environment variables, rebuild and redeploy the project.
 
@@ -66,7 +66,7 @@ yarn build
 - Node.js
 - Cloudflare D1 (SQLite-compatible database)
 - Cloudflare Workers (for serverless functions)
-- Nodemailer + SMTP (for email)
+- MailChannels API (for email delivery)
 - Styled Components
 
 ## Database Setup
