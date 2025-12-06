@@ -277,13 +277,16 @@ async function sendMessage(env, userId, conversationId, userMessage, model) {
 
     try {
         // Call Cloudflare Workers AI
+        const messagesText = messages
+            .map(m => `${m.role}: ${m.content}`)
+            .join("\n");
+
         const aiResponse = await env.AI.run(selectedModel, {
             requests: [
-                {
-                    prompt: messages.map(m => `${m.role}: ${m.content}`).join('\n')
-                }
+                { input: messagesText }
             ]
         });
+
 
         const assistantMessage = aiResponse.response || 'Sorry, I could not generate a response.';
 
