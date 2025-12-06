@@ -10,6 +10,10 @@ export async function onRequest(context) {
     const userId = requestData.userId;
     const token = requestData.token;
 
+    if (action === "getAvailableModels") {
+        return await getAvailableModels(env);
+    }
+
     // Validate authentication for all actions
     if (!userId || !token) {
         return new Response(JSON.stringify({
@@ -63,7 +67,7 @@ export async function onRequest(context) {
             
             case 'sendMessage':
                 return await sendMessage(env, userId, requestData.conversationId, requestData.message, requestData.model);
-            
+
             case 'getAvailableModels':
                 return await getAvailableModels(env);
             
@@ -321,6 +325,8 @@ async function getAvailableModels(env) {
     const res = await fetch(url, {
         headers: { Authorization: `Bearer ${env.CF_TOKEN}` }
     });
+
+    return new Response(res.json());
 
     if (!res.ok) {
         throw new Error(`Cloudflare API said nope: ${res.status} ${res.statusText}`);
