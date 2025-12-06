@@ -285,7 +285,7 @@ async function sendMessage(env, userId, conversationId, userMessage, model) {
             aiResponse = await env.AI.run(selectedModel, {
                 messages: messages
             });
-            assistantMessage = aiResponse.message
+            assistantMessage = aiResponse.message;
         } catch (error) {
             // probably shit has gone wrong because Cloudflare cant make proper API for models
             aiResponse = await env.AI.run("@cf/openai/gpt-oss-120b", {
