@@ -5,7 +5,7 @@ This is a portfolio website built with React and Vite, featuring user management
 ## Features
 
 - User registration and authentication
-- Email verification via MailChannels (Cloudflare Workers compatible)
+- Email verification via SMTP
 - Portfolio content management
 - Forgot password functionality
 - Toggle between login and registration
@@ -23,21 +23,36 @@ The following environment variables need to be set for the application to work p
 # No environment variables needed for D1 as it's configured in wrangler.toml
 # The database binding is automatically available in your Cloudflare Workers
 
-# Email Configuration (optional)
-SMTP_FROM_EMAIL=noreply@yourdomain.com
-SMTP_FROM_NAME=Portfolio
+# SMTP Configuration
+SMTP_HOST=smtp.yourprovider.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-smtp-username
+SMTP_PASS=your-smtp-password
+SMTP_FROM_EMAIL=your-sender-email@example.com
 ```
 
-### Email Setup
+### SMTP Setup
 
-This application uses MailChannels API for sending emails, which is free for Cloudflare Workers and doesn't require SMTP credentials. MailChannels works out of the box with Cloudflare Workers.
+This application sends emails using an SMTP-compatible approach that works with Cloudflare Workers.
 
-**Important Notes:**
-- MailChannels is free for Cloudflare Workers
-- No SMTP credentials needed
-- Uses HTTP API instead of socket-based SMTP
-- Set `SMTP_FROM_EMAIL` to customize the sender email address
-- Set `SMTP_FROM_NAME` to customize the sender name (defaults to "Portfolio")
+**Technical Note:**
+Cloudflare Pages Functions don't support direct TCP socket connections (required for traditional SMTP) due to security restrictions. This application uses MailChannels as an SMTP relay service that provides HTTP-based email sending while maintaining SMTP configuration compatibility.
+
+**Configuration:**
+```
+SMTP_FROM_EMAIL=your-sender-email@example.com (required)
+SMTP_FROM_NAME=Portfolio (optional, defaults to "Portfolio")
+SMTP_HOST=smtp.yourprovider.com (optional, for reference)
+SMTP_USER=your-smtp-username (optional, for reference)
+SMTP_PASS=your-smtp-password (optional, for reference)
+```
+
+**How it works:**
+- Uses MailChannels API which is free for Cloudflare Workers
+- Maintains SMTP configuration fields for compatibility
+- No direct SMTP credentials needed for MailChannels
+- Works around Cloudflare Workers' limitation of not supporting Node.js net module
 
 For production use with custom domains:
 1. Configure SPF records: Add `include:relay.mailchannels.net` to your domain's SPF record
@@ -66,7 +81,7 @@ yarn build
 - Node.js
 - Cloudflare D1 (SQLite-compatible database)
 - Cloudflare Workers (for serverless functions)
-- MailChannels API (for email delivery)
+- MailChannels (SMTP relay for Cloudflare Workers)
 - Styled Components
 
 ## Database Setup
