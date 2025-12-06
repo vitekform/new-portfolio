@@ -7,16 +7,18 @@ import crypto from 'crypto';
  * while maintaining SMTP configuration compatibility
  */
 async function sendEmail(env, { to, from, subject, html }) {
-  const defaultFrom = env.SMTP_FROM_EMAIL || env.SMTP_USER;
+  // Determine sender email address
+  const defaultFrom = env.SMTP_FROM_EMAIL || env.SMTP_USER || 'noreply@example.com';
   const fromEmail = from || defaultFrom;
   
-  // Validate SMTP configuration
-  if (!env.SMTP_HOST) {
-    console.warn('SMTP_HOST not configured, using MailChannels for email delivery');
+  // Validate required email address
+  if (!to || !fromEmail) {
+    throw new Error('Email requires both recipient (to) and sender (from) addresses');
   }
   
   // Use MailChannels API which is SMTP-compatible and works in Cloudflare Workers
-  // This avoids the net.connect limitation while still supporting SMTP configuration
+  // This avoids the net.connect limitation while supporting SMTP-style configuration
+  // Note: SMTP_HOST, SMTP_USER, SMTP_PASS are optional and kept for configuration compatibility
   const mailChannelsEndpoint = 'https://api.mailchannels.net/tx/v1/send';
   
   const emailPayload = {
@@ -37,15 +39,6 @@ async function sendEmail(env, { to, from, subject, html }) {
       },
     ],
   };
-
-  // If SMTP credentials are provided, add them as DKIM configuration
-  // This allows using your own domain authentication with MailChannels
-  if (env.SMTP_USER && env.SMTP_PASS && env.SMTP_HOST) {
-    // Note: MailChannels doesn't use SMTP AUTH directly but accepts DKIM
-    // For true SMTP, you would need a service that accepts SMTP over HTTP
-    // or use Cloudflare Email Workers (when available)
-    console.log(`Using MailChannels relay for ${env.SMTP_HOST}`);
-  }
 
   const response = await fetch(mailChannelsEndpoint, {
     method: 'POST',
