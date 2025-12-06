@@ -65,7 +65,7 @@ export async function onRequest(context) {
                 return await sendMessage(env, userId, requestData.conversationId, requestData.message, requestData.model);
             
             case 'getAvailableModels':
-                return await getAvailableModels();
+                return await getAvailableModels(env);
             
             case 'getSystemPrompt':
                 return await getSystemPrompt(env);
@@ -313,24 +313,26 @@ async function sendMessage(env, userId, conversationId, userMessage, model) {
 /**
  * Get list of available Cloudflare Workers AI models
  */
-async function getAvailableModels() {
+async function getAvailableModels(env) {
     // List of popular Cloudflare Workers AI models
-    const models = [
-        { id: '@cf/meta/llama-2-7b-chat-int8', name: 'Llama 2 7B Chat' },
-        { id: '@cf/meta/llama-3-8b-instruct', name: 'Llama 3 8B Instruct' },
-        { id: '@cf/meta/llama-3.1-8b-instruct', name: 'Llama 3.1 8B Instruct' },
-        { id: '@cf/meta/llama-3.2-1b-instruct', name: 'Llama 3.2 1B Instruct' },
-        { id: '@cf/meta/llama-3.2-3b-instruct', name: 'Llama 3.2 3B Instruct' },
-        { id: '@cf/mistral/mistral-7b-instruct-v0.1', name: 'Mistral 7B Instruct v0.1' },
-        { id: '@cf/mistral/mistral-7b-instruct-v0.2-lora', name: 'Mistral 7B Instruct v0.2 LoRA' },
-        { id: '@hf/thebloke/deepseek-coder-6.7b-instruct-awq', name: 'DeepSeek Coder 6.7B Instruct' },
-        { id: '@hf/thebloke/neural-chat-7b-v3-1-awq', name: 'Neural Chat 7B v3.1' },
-        { id: '@cf/qwen/qwen1.5-14b-chat-awq', name: 'Qwen 1.5 14B Chat' },
-        { id: '@cf/google/gemma-7b-it', name: 'Gemma 7B IT' },
-        { id: '@cf/google/gemma-2-9b-it', name: 'Gemma 2 9B IT' },
-        { id: '@cf/microsoft/phi-2', name: 'Phi-2' },
-        { id: '@cf/tinyllama/tinyllama-1.1b-chat-v1.0', name: 'TinyLlama 1.1B Chat' }
-    ];
+
+    const url = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/ai/models/search?task=text-generation&per_page=100`;
+
+    const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${env.CF_TOKEN}` }
+    });
+
+    if (!res.ok) {
+        throw new Error(`Cloudflare API said nope: ${res.status} ${res.statusText}`);
+    }
+
+    const data = await res.json();
+
+    let models = [];
+
+    for (const model of data.result) {
+        models.push({ id: model.name, name: model.name });
+    }
 
     return new Response(JSON.stringify({
         success: true,
