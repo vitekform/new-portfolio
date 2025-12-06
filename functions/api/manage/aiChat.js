@@ -289,7 +289,7 @@ async function sendMessage(env, userId, conversationId, userMessage, model) {
         } catch (error) {
             // probably shit has gone wrong because Cloudflare cant make proper API for models
             aiResponse = await env.AI.run("@cf/openai/gpt-oss-120b", {
-                input: history
+                input: messages
             });
             assistantMessage = aiResponse.output
                 .find(item => item.type === "message" && item.content[0]?.type === "output_text")
