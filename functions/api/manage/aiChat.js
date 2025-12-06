@@ -279,12 +279,25 @@ async function sendMessage(env, userId, conversationId, userMessage, model) {
 
     try {
         // Call Cloudflare Workers AI
-        const aiResponse = await env.AI.run(selectedModel, {
-            messages: messages
-        });
+        let aiResponse;
+        let assistantMessage;
+        try {
+            aiResponse = await env.AI.run(selectedModel, {
+                messages: messages
+            });
+            assistantMessage = aiResponse.message
+        } catch (error) {
+            // probably shit has gone wrong because Cloudflare cant make proper API for models
+            aiResponse = await env.AI.run("@cf/openai/gpt-oss-120b", {
+                input: history
+            });
+            assistantMessage = aiResponse.output
+                .find(item => item.type === "message" && item.content[0]?.type === "output_text")
+                ?.content[0].text;
+        }
 
 
-        const assistantMessage = aiResponse.response || 'Sorry, I could not generate a response.';
+        assistantMessage = assistantMessage || 'Sorry, I could not generate a response.';
 
         // Save assistant message
         await env.DB.prepare(`
