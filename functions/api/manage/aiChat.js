@@ -297,6 +297,7 @@ async function sendMessage(env, userId, conversationId, userMessage, model) {
         }
 
 
+        console.log('AI response:', assistantMessage);
         assistantMessage = assistantMessage || 'Sorry, I could not generate a response.';
 
         // Save assistant message
