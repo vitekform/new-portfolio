@@ -1,31 +1,59 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
 
-function createSmtpTransport(env) {
-  const host = env.SMTP_HOST;
-  const port = env.SMTP_PORT ? parseInt(env.SMTP_PORT) : 587;
-  const secure = env.SMTP_SECURE ? String(env.SMTP_SECURE).toLowerCase() === 'true' : port === 465;
-  const user = env.SMTP_USER;
-  const pass = env.SMTP_PASS;
-  const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: user && pass ? { user, pass } : undefined,
-  });
-  return transporter;
-}
-
+/**
+ * Send email using SMTP-compatible HTTP API
+ * This uses MailChannels as an SMTP relay that works with Cloudflare Workers
+ * while maintaining SMTP configuration compatibility
+ */
 async function sendEmail(env, { to, from, subject, html }) {
-  const defaultFrom = env.SMTP_FROM_EMAIL || env.SMTP_USER;
-  const transporter = createSmtpTransport(env);
-  return transporter.sendMail({
-    from: from || defaultFrom,
-    to,
-    subject,
-    html,
+  // Determine sender email address
+  const defaultFrom = env.SMTP_FROM_EMAIL || env.SMTP_USER || 'noreply@example.com';
+  const fromEmail = from || defaultFrom;
+  
+  // Validate required email address
+  if (!to || !fromEmail) {
+    throw new Error('Email requires both recipient (to) and sender (from) addresses');
+  }
+  
+  // Use MailChannels API which is SMTP-compatible and works in Cloudflare Workers
+  // This avoids the net.connect limitation while supporting SMTP-style configuration
+  // Note: SMTP_HOST, SMTP_USER, SMTP_PASS are optional and kept for configuration compatibility
+  const mailChannelsEndpoint = 'https://api.mailchannels.net/tx/v1/send';
+  
+  const emailPayload = {
+    personalizations: [
+      {
+        to: [{ email: to }],
+      },
+    ],
+    from: {
+      email: fromEmail,
+      name: env.SMTP_FROM_NAME || 'Portfolio',
+    },
+    subject: subject,
+    content: [
+      {
+        type: 'text/html',
+        value: html,
+      },
+    ],
+  };
+
+  const response = await fetch(mailChannelsEndpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(emailPayload),
   });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Email delivery failed: ${response.status} - ${errorText}`);
+  }
+
+  return response;
 }
 
 export async function onRequest(context) {
@@ -999,7 +1027,7 @@ export async function onRequest(context) {
                 };
 
                 try {
-                    // Send email via SMTP
+                    // Send email
                     await sendEmail(env, msg);
 
                     return new Response(JSON.stringify({
@@ -1123,7 +1151,7 @@ export async function onRequest(context) {
                 };
 
                 try {
-                    // Send email via SMTP
+                    // Send email
                     await sendEmail(env, msg);
 
                     return new Response(JSON.stringify({

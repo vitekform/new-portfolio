@@ -21,7 +21,6 @@
     "framer-motion": "^11.0.8",
     "js-cookie": "^3.0.5",
     "minio": "^8.0.6",
-    "nodemailer": "^7.0.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-file-viewer": "1.2.1",
