@@ -326,13 +326,13 @@ async function getAvailableModels(env) {
         headers: { Authorization: `Bearer ${env.CF_TOKEN}` }
     });
 
-    return new Response(await res.json());
-
     if (!res.ok) {
         throw new Error(`Cloudflare API said nope: ${res.status} ${res.statusText}`);
     }
 
     const data = await res.json();
+
+    return new Response(JSON.stringify({data}), {status: 200});
 
     if (!data.success) {
         throw new Error(`Cloudflare API returned error. URL: ${url} Response: ${JSON.stringify(data)}`);
