@@ -275,6 +275,8 @@ async function sendMessage(env, userId, conversationId, userMessage, model) {
         { role: 'user', content: userMessage }
     ];
 
+    console.log('Messages to send to AI:', messages);
+
     try {
         // Call Cloudflare Workers AI
         const aiResponse = await env.AI.run(selectedModel, {
