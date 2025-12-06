@@ -277,14 +277,8 @@ async function sendMessage(env, userId, conversationId, userMessage, model) {
 
     try {
         // Call Cloudflare Workers AI
-        const messagesText = messages
-            .map(m => `${m.role}: ${m.content}`)
-            .join("\n");
-
         const aiResponse = await env.AI.run(selectedModel, {
-            requests: [
-                { input: messagesText }
-            ]
+            messages: messages
         });
 
 
