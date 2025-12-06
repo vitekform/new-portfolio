@@ -10,9 +10,9 @@ export async function onRequest(context) {
     const userId = requestData.userId;
     const token = requestData.token;
 
-    if (action === "getAvailableModels") {
-        return await getAvailableModels(env);
-    }
+    //if (action === "getAvailableModels") {
+    //    return await getAvailableModels(env);
+    //}
 
     // Validate authentication for all actions
     if (!userId || !token) {
@@ -332,7 +332,7 @@ async function getAvailableModels(env) {
 
     const data = await res.json();
 
-    return new Response(JSON.stringify({data}), {status: 200});
+    //return new Response(JSON.stringify({data}), {status: 200});
 
     if (!data.success) {
         throw new Error(`Cloudflare API returned error. URL: ${url} Response: ${JSON.stringify(data)}`);
