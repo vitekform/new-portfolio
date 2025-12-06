@@ -328,6 +328,10 @@ async function getAvailableModels(env) {
 
     const data = await res.json();
 
+    if (!data.success) {
+        throw new Error(`Cloudflare API returned error. URL: ${url} Response: ${JSON.stringify(data)}`);
+    }
+
     let models = [];
 
     for (const model of data.result) {
