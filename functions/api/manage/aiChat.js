@@ -320,7 +320,7 @@ async function sendMessage(env, userId, conversationId, userMessage, model) {
 async function getAvailableModels(env) {
     // List of popular Cloudflare Workers AI models
 
-    const url = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/ai/models/search?task=text-generation&per_page=100`;
+    const url = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/ai/models/search&per_page=100`;
 
     const res = await fetch(url, {
         headers: { Authorization: `Bearer ${env.CF_TOKEN}` }
