@@ -19,6 +19,7 @@ import ServiceRequestsApp from './components/manage/apps/ServiceRequestsApp';
 import StorageApp from './components/manage/apps/StorageApp';
 import TicketsApp from './components/manage/apps/TicketsApp';
 import AccountApp from './components/manage/apps/AccountApp';
+import AIChatApp from './components/manage/apps/AIChatApp';
 
 // Create router configuration
 const router = createBrowserRouter([
@@ -37,6 +38,10 @@ const router = createBrowserRouter([
       {
         path: 'dashboard',
         element: <DashboardApp />
+      },
+      {
+        path: 'ai-chat',
+        element: <AIChatApp />
       },
       {
         path: 'status',
