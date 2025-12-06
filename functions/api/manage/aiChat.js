@@ -331,7 +331,9 @@ async function getAvailableModels(env) {
     let models = [];
 
     for (const model of data.result) {
-        models.push({ id: model.name, name: model.name });
+        if (model.task?.name === "Text Generation") {
+            models.push({ id: model.name, name: model.name });
+        }
     }
 
     return new Response(JSON.stringify({
