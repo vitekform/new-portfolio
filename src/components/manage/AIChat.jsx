@@ -14,6 +14,11 @@ function AIChat() {
   const [showSettings, setShowSettings] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState('');
+  const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [newChatTitle, setNewChatTitle] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
   const messagesEndRef = useRef(null);
   const userId = localStorage.getItem('userId');
   const token = localStorage.getItem('token');
@@ -118,8 +123,10 @@ function AIChat() {
   };
 
   const createNewConversation = async () => {
-    const title = prompt('Enter conversation title:');
-    if (!title) return;
+    if (!newChatTitle.trim()) {
+      setError('Conversation title is required');
+      return;
+    }
 
     try {
       const response = await fetch('/api/manage/aiChat', {
@@ -129,14 +136,18 @@ function AIChat() {
           action: 'createConversation',
           userId,
           token,
-          title,
+          title: newChatTitle,
           model: selectedModel
         })
       });
       const data = await response.json();
       if (data.success) {
+        setNewChatTitle('');
+        setShowNewChatModal(false);
         fetchConversations();
         loadConversation(data.conversationId);
+        setSuccessMessage('Conversation created successfully');
+        setTimeout(() => setSuccessMessage(''), 3000);
       }
     } catch (err) {
       console.error('Error creating conversation:', err);
@@ -145,8 +156,6 @@ function AIChat() {
   };
 
   const deleteConversation = async (conversationId) => {
-    if (!confirm('Are you sure you want to delete this conversation?')) return;
-
     try {
       const response = await fetch('/api/manage/aiChat', {
         method: 'POST',
@@ -160,6 +169,10 @@ function AIChat() {
           setCurrentConversation(null);
           setMessages([]);
         }
+        setShowDeleteConfirm(false);
+        setConversationToDelete(null);
+        setSuccessMessage('Conversation deleted successfully');
+        setTimeout(() => setSuccessMessage(''), 3000);
       }
     } catch (err) {
       console.error('Error deleting conversation:', err);
@@ -235,13 +248,14 @@ function AIChat() {
       });
       const data = await response.json();
       if (data.success) {
-        alert('System prompt updated successfully');
+        setSuccessMessage('System prompt updated successfully');
+        setTimeout(() => setSuccessMessage(''), 3000);
       } else {
-        alert(data.message || 'Failed to update system prompt');
+        setError(data.message || 'Failed to update system prompt');
       }
     } catch (err) {
       console.error('Error updating system prompt:', err);
-      alert('Failed to update system prompt');
+      setError('Failed to update system prompt');
     }
   };
 
@@ -250,7 +264,7 @@ function AIChat() {
       <Sidebar>
         <SidebarHeader>
           <h3>Conversations</h3>
-          <NewChatButton onClick={createNewConversation}>
+          <NewChatButton onClick={() => setShowNewChatModal(true)}>
             <FaPlus /> New Chat
           </NewChatButton>
         </SidebarHeader>
@@ -268,7 +282,8 @@ function AIChat() {
               <DeleteButton
                 onClick={(e) => {
                   e.stopPropagation();
-                  deleteConversation(conv.id);
+                  setConversationToDelete(conv.id);
+                  setShowDeleteConfirm(true);
                 }}
               >
                 <FaTrash />
@@ -355,6 +370,7 @@ function AIChat() {
             </MessagesArea>
 
             {error && <ErrorMessage>{error}</ErrorMessage>}
+            {successMessage && <SuccessMessage>{successMessage}</SuccessMessage>}
 
             <MessageForm onSubmit={sendMessage}>
               <MessageInput
@@ -377,6 +393,63 @@ function AIChat() {
           </EmptyState>
         )}
       </ChatArea>
+
+      {/* New Chat Modal */}
+      {showNewChatModal && (
+        <Modal>
+          <ModalContent>
+            <ModalHeader>
+              <h3>Create New Conversation</h3>
+              <CloseButton onClick={() => { setShowNewChatModal(false); setNewChatTitle(''); }}>
+                ×
+              </CloseButton>
+            </ModalHeader>
+            <ModalBody>
+              <label>Conversation Title:</label>
+              <input
+                type="text"
+                value={newChatTitle}
+                onChange={(e) => setNewChatTitle(e.target.value)}
+                placeholder="Enter title..."
+                autoFocus
+              />
+            </ModalBody>
+            <ModalFooter>
+              <CancelButton onClick={() => { setShowNewChatModal(false); setNewChatTitle(''); }}>
+                Cancel
+              </CancelButton>
+              <ConfirmButton onClick={createNewConversation}>
+                Create
+              </ConfirmButton>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <Modal>
+          <ModalContent>
+            <ModalHeader>
+              <h3>Delete Conversation</h3>
+              <CloseButton onClick={() => { setShowDeleteConfirm(false); setConversationToDelete(null); }}>
+                ×
+              </CloseButton>
+            </ModalHeader>
+            <ModalBody>
+              <p>Are you sure you want to delete this conversation? This action cannot be undone.</p>
+            </ModalBody>
+            <ModalFooter>
+              <CancelButton onClick={() => { setShowDeleteConfirm(false); setConversationToDelete(null); }}>
+                Cancel
+              </CancelButton>
+              <DeleteConfirmButton onClick={() => deleteConversation(conversationToDelete)}>
+                Delete
+              </DeleteConfirmButton>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      )}
     </ChatContainer>
   );
 }
@@ -646,6 +719,147 @@ const ErrorMessage = styled.div`
   background-color: rgba(255, 0, 0, 0.1);
   color: #d32f2f;
   border-top: 1px solid var(--card-border);
+`;
+
+const SuccessMessage = styled.div`
+  padding: 0.75rem 1.5rem;
+  background-color: rgba(76, 175, 80, 0.1);
+  color: #4caf50;
+  border-top: 1px solid var(--card-border);
+`;
+
+const Modal = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+`;
+
+const ModalContent = styled.div`
+  background-color: var(--card-bg);
+  border-radius: var(--border-radius);
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+`;
+
+const ModalHeader = styled.div`
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--card-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  h3 {
+    margin: 0;
+    color: var(--text-primary);
+  }
+`;
+
+const CloseButton = styled.button`
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    color: var(--accent-color);
+  }
+`;
+
+const ModalBody = styled.div`
+  padding: 1.5rem;
+
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  input {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--card-border);
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+
+    &:focus {
+      outline: none;
+      border-color: var(--accent-color);
+    }
+  }
+
+  p {
+    margin: 0;
+    color: var(--text-primary);
+    line-height: 1.5;
+  }
+`;
+
+const ModalFooter = styled.div`
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--card-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+`;
+
+const CancelButton = styled.button`
+  padding: 0.75rem 1.5rem;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--card-border);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 500;
+
+  &:hover {
+    background-color: var(--bg-primary);
+  }
+`;
+
+const ConfirmButton = styled.button`
+  padding: 0.75rem 1.5rem;
+  background-color: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 500;
+
+  &:hover {
+    opacity: 0.9;
+  }
+`;
+
+const DeleteConfirmButton = styled.button`
+  padding: 0.75rem 1.5rem;
+  background-color: #d32f2f;
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 500;
+
+  &:hover {
+    opacity: 0.9;
+  }
 `;
 
 const MessageForm = styled.form`

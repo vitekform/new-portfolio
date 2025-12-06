@@ -347,7 +347,7 @@ async function getAvailableModels() {
 async function getSystemPrompt(env) {
     const result = await env.DB.prepare(`
         SELECT value FROM ai_settings WHERE key = 'system_prompt' LIMIT 1
-    `).bind().first();
+    `).first();
 
     return new Response(JSON.stringify({
         success: true,
