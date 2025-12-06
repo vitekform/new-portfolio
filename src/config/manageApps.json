@@ -6,6 +6,12 @@
     "icon": "Dashboard"
   },
   {
+    "app_name": "AI Chat",
+    "app_url": "/manage/app/ai-chat",
+    "role": "user",
+    "icon": "FaRobot"
+  },
+  {
     "app_name": "Status",
     "app_url": "/manage/app/status",
     "role": "user",

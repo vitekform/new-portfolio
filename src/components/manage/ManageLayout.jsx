@@ -4,7 +4,7 @@ import { FaSignOutAlt, FaSpinner } from 'react-icons/fa';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import ThemeToggle from '../common/ThemeToggle';
 import manageAppsConfig from '../../config/manageApps.json';
-import { FaUsers, FaChartLine, FaServer, FaCog, FaClipboardCheck, FaTicketAlt } from 'react-icons/fa';
+import { FaUsers, FaChartLine, FaServer, FaCog, FaClipboardCheck, FaTicketAlt, FaRobot } from 'react-icons/fa';
 import '../../App.css';
 import '../../index.css';
 
@@ -15,6 +15,7 @@ const iconMap = {
   FaCog,
   FaClipboardCheck,
   FaTicketAlt,
+  FaRobot,
   Dashboard: () => '📊',
   Storage: () => '📦'
 };

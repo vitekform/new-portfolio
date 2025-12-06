@@ -76,7 +76,7 @@ export async function onRequest(context) {
                     'users', 'services', 'service_requests', 'tickets',
                     'ticket_messages', 'achievements', 'user_achievements',
                     'easter_eggs', 'user_easter_eggs', 'secret_settings',
-                    'user_secret_settings'
+                    'user_secret_settings', 'chat_conversations', 'chat_messages', 'ai_settings'
                 ]
             }), {
                 status: 200,
@@ -113,7 +113,7 @@ async function checkDatabaseSetup(env) {
             'users', 'services', 'service_requests', 'tickets',
             'ticket_messages', 'achievements', 'user_achievements',
             'easter_eggs', 'user_easter_eggs', 'secret_settings',
-            'user_secret_settings'
+            'user_secret_settings', 'chat_conversations', 'chat_messages', 'ai_settings'
         ];
 
         // Check if all required tables exist
@@ -141,6 +141,7 @@ async function checkDatabaseSetup(env) {
  */
 async function wipeDatabase(env) {
     const tables = [
+        'chat_messages', 'chat_conversations', 'ai_settings',
         'user_secret_settings', 'user_easter_eggs', 'user_achievements',
         'secret_settings', 'easter_eggs', 'achievements',
         'ticket_messages', 'tickets', 'service_requests',
@@ -313,6 +314,58 @@ async function createDatabaseSchema(env) {
         )
     `).run();
 
+    // AI Chat tables
+    // Chat conversations table
+    await env.DB.prepare(`
+        CREATE TABLE chat_conversations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            model TEXT NOT NULL DEFAULT '@cf/meta/llama-2-7b-chat-int8',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    `).run();
+
+    // Chat messages table
+    await env.DB.prepare(`
+        CREATE TABLE chat_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            conversation_id INTEGER NOT NULL,
+            role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
+            content TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (conversation_id) REFERENCES chat_conversations(id) ON DELETE CASCADE
+        )
+    `).run();
+
+    // AI settings table
+    await env.DB.prepare(`
+        CREATE TABLE ai_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key TEXT NOT NULL UNIQUE,
+            value TEXT NOT NULL,
+            description TEXT,
+            updated_by INTEGER,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+        )
+    `).run();
+
+    // Create indexes for AI chat tables
+    await env.DB.prepare(`
+        CREATE INDEX idx_chat_conversations_user_id ON chat_conversations(user_id)
+    `).run();
+    
+    await env.DB.prepare(`
+        CREATE INDEX idx_chat_messages_conversation_id ON chat_messages(conversation_id)
+    `).run();
+    
+    await env.DB.prepare(`
+        CREATE INDEX idx_chat_messages_created_at ON chat_messages(created_at)
+    `).run();
+
     console.log('All database tables created successfully');
 }
 
@@ -381,6 +434,12 @@ async function insertDefaultData(env) {
             VALUES (?1, ?2, ?3, datetime('now'))
         `).bind(achievement.code, achievement.name, achievement.description).run();
     }
+
+    // Insert default AI settings
+    await env.DB.prepare(`
+        INSERT INTO ai_settings (key, value, description, updated_at)
+        VALUES ('system_prompt', 'You are a helpful AI assistant.', 'Default system prompt for AI conversations', datetime('now'))
+    `).run();
 
     console.log('Default data inserted successfully');
     console.log(`Root user created - Username: admin, Password: admin123, Token: ${rootToken}`);

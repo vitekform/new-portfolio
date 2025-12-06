@@ -8,3 +8,6 @@ pages_build_output_dir = "dist"
 binding = "DB"                            # This is the variable you'll use in your Worker code
 database_name = "portfolio_db"          # Your D1 database name in the Cloudflare dashboard
 database_id = "d8b1cd33-c10c-4e16-b70d-dc0f532dadf2"       # Found in the Cloudflare dashboard
+
+[ai]
+binding = "AI"                            # This is the variable you'll use for Workers AI

@@ -31,3 +31,6 @@ dist-ssr
 # Database scripts
 db-scripts
 functions/api/setup
+
+# Wrangler state
+.wrangler
